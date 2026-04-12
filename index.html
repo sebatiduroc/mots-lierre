@@ -429,6 +429,12 @@
 
   .notif { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 20px; font-size: .75rem; color: var(--text-dim); letter-spacing: .1em; z-index: 600; animation: notifAnim 1.4s ease-out forwards; pointer-events: none; }
   @keyframes notifAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(.9)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-58%) scale(.95)} }
+
+  @keyframes fadeInPop {
+    0%  { opacity:0; transform:scale(.88); }
+    60% { transform:scale(1.03); }
+    100%{ opacity:1; transform:scale(1); }
+  }
 </style>
 </head>
 <body>
@@ -601,8 +607,40 @@ try {
 // ══════════════════════════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════════════════════════
-const GAME_DURATION_ANON = 180;   // 3 min
-const GAME_DURATION_AUTH = 300;   // 5 min
+const GAME_DURATION_ANON = 180;   // 3 min (non connecté ou badge < 50%)
+
+// Durée selon le meilleur badge (connecté)
+function getGameDuration(bestBadge) {
+  if (!bestBadge || bestBadge < 50) return 180;   // 3 min
+  if (bestBadge < 60)  return 210;   // 3 min 30
+  if (bestBadge < 70)  return 240;   // 4 min
+  if (bestBadge < 80)  return 270;   // 4 min 30
+  if (bestBadge < 90)  return 300;   // 5 min
+  if (bestBadge < 95)  return 360;   // 6 min
+  return 600;                         // 10 min
+}
+
+// Libellé du bonus temps pour affichage
+function getDurationLabel(bestBadge) {
+  if (!bestBadge || bestBadge < 50) return '3 min';
+  if (bestBadge < 60)  return '3 min 30';
+  if (bestBadge < 70)  return '4 min';
+  if (bestBadge < 80)  return '4 min 30';
+  if (bestBadge < 90)  return '5 min';
+  if (bestBadge < 95)  return '6 min';
+  return '10 min';
+}
+
+// Seuil de badge à partir duquel un bonus temps s'applique
+function getBadgeTimeThreshold(badge) {
+  if (badge >= 95) return 95;
+  if (badge >= 90) return 90;
+  if (badge >= 80) return 80;
+  if (badge >= 70) return 70;
+  if (badge >= 60) return 60;
+  if (badge >= 50) return 50;
+  return null;
+}
 const N              = 4;
 const MULTI_TTL_MS   = 72 * 60 * 60 * 1000;
 const WEEK_MS        = 7 * 24 * 60 * 60 * 1000;
@@ -718,21 +756,25 @@ function updateAuthUI() {
   const btnsConn = document.getElementById('authButtonsConnected');
   if (currentUser) {
     const name = currentUser.displayName || currentUser.email || 'Connecté';
-    // Récupère le badge actuel pour l'afficher
     if (db) {
       db.collection('badges').doc(currentUser.uid).get().then(snap => {
-        const badge = snap.exists ? snap.data().bestBadge : null;
+        const badge = snap.exists ? (snap.data().bestBadge || 0) : 0;
+        currentBestBadge = badge;
         const badgeHtml = badge ? `<span class="auth-badge">${badge}%</span>` : '';
-        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span>${badgeHtml}<br>Mode connecté · <span style="color:var(--gold)">5 min</span>`;
+        const durLabel = getDurationLabel(badge);
+        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span>${badgeHtml}<br>Mode connecté · <span style="color:var(--gold)">${durLabel}</span>`;
       }).catch(() => {
-        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Mode connecté · <span style="color:var(--gold)">5 min</span>`;
+        currentBestBadge = 0;
+        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Mode connecté · <span style="color:var(--gold)">3 min</span>`;
       });
     } else {
-      status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Mode connecté · <span style="color:var(--gold)">5 min</span>`;
+      currentBestBadge = 0;
+      status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Mode connecté · <span style="color:var(--gold)">3 min</span>`;
     }
     btnsAnon.style.display = 'none';
     btnsConn.style.display = 'block';
   } else {
+    currentBestBadge = 0;
     status.innerHTML = `Non connecté · <span style="color:var(--text-dim)">3 min</span> en solo`;
     btnsAnon.style.display = 'block';
     btnsConn.style.display = 'none';
@@ -851,13 +893,72 @@ async function updateBadge(earned) {
         bestBadge: earned,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-      updateAuthUI(); // rafraîchit le badge dans la zone auth
+      currentBestBadge = earned;
+      updateAuthUI();
+
+      // Popup si nouveau palier de temps débloqué
+      const prevThreshold = getBadgeTimeThreshold(previous);
+      const newThreshold  = getBadgeTimeThreshold(earned);
+      if (newThreshold && newThreshold !== prevThreshold) {
+        showTimeBonusPopup(earned, newThreshold);
+      }
     }
     return { earned, isNew, previous };
   } catch(e) {
     console.warn('updateBadge:', e.message);
     return { earned, isNew: false, previous: null };
   }
+}
+
+function showTimeBonusPopup(badge, threshold) {
+  const dur = getDurationLabel(threshold);
+  const existing = document.getElementById('timeBonusPopup');
+  if (existing) existing.remove();
+
+  const popup = document.createElement('div');
+  popup.id = 'timeBonusPopup';
+  popup.innerHTML = `
+    <div style="
+      position:fixed; inset:0; background:rgba(13,13,15,.82);
+      display:flex; align-items:center; justify-content:center;
+      z-index:980; backdrop-filter:blur(10px);
+      animation: fadeInPop .35s ease;
+    ">
+      <div style="
+        background:linear-gradient(135deg,#1e1e28,#16161a);
+        border:2px solid var(--gold); border-radius:20px;
+        padding:36px 28px; width:min(88vw,340px);
+        text-align:center; display:flex; flex-direction:column;
+        align-items:center; gap:14px;
+        box-shadow: 0 0 40px rgba(200,169,110,0.25);
+      ">
+        <div style="font-size:2.8rem; line-height:1;">⏱</div>
+        <div style="font-family:'Playfair Display',serif; font-size:1.35rem; color:var(--gold-light); letter-spacing:.06em;">
+          Nouveau bonus temps !
+        </div>
+        <div style="font-size:0.62rem; letter-spacing:.2em; color:var(--text-dim); text-transform:uppercase; line-height:1.9;">
+          Votre badge <span style="color:var(--gold)">${badge}%</span> débloque
+        </div>
+        <div style="
+          font-family:'Playfair Display',serif; font-size:3rem;
+          color:var(--gold); line-height:1; font-weight:900;
+        ">${dur}</div>
+        <div style="font-size:0.58rem; letter-spacing:.18em; color:var(--text-dim); text-transform:uppercase;">
+          par partie · mode connecté
+        </div>
+        <button onclick="document.getElementById('timeBonusPopup').remove()" style="
+          margin-top:6px; padding:12px 32px;
+          border:1.5px solid var(--gold); border-radius:10px;
+          background:var(--gold); color:#0d0d0f;
+          font-family:'DM Mono',monospace; font-size:.78rem;
+          letter-spacing:.15em; text-transform:uppercase;
+          cursor:pointer; font-weight:500;
+          transition: background .15s;
+        ">Super !</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(popup);
 }
 
 // ── Affichage tableau des badges ──
@@ -916,7 +1017,8 @@ let timerInterval=null, isDragging=false, gestureStart=null;
 let currentMode='solo', currentGameCode='', currentPseudo='';
 let firestoreUnsub=null;
 let boardAnalysis = null;
-let GAME_DURATION = GAME_DURATION_ANON; // sera mis à jour selon auth
+let GAME_DURATION = GAME_DURATION_ANON;
+let currentBestBadge = 0; // badge actuel du joueur connecté
 
 // ══════════════════════════════════════════════════════════
 // TRIE — construit en tâche de fond après chargement du dico
@@ -1246,13 +1348,16 @@ function launchGame() {
 // INIT JEU
 // ══════════════════════════════════════════════════════════
 function initGame() {
-  // Durée selon auth (solo uniquement)
-  GAME_DURATION = (currentMode === 'solo' && currentUser) ? GAME_DURATION_AUTH : GAME_DURATION_ANON;
+  // Durée selon badge (solo uniquement, connecté)
+  const bestBadge = (typeof currentBestBadge !== 'undefined') ? currentBestBadge : 0;
+  GAME_DURATION = (currentMode === 'solo' && currentUser) ? getGameDuration(bestBadge) : GAME_DURATION_ANON;
   timeLeft = GAME_DURATION;
 
-  // Afficher le bonus auth dans le countdown
+  // Afficher le bonus dans le countdown
   const bonusEl = document.getElementById('countdownAuthBonus');
   if (currentMode === 'solo' && currentUser) {
+    const label = getDurationLabel(bestBadge);
+    bonusEl.textContent = `⏱ ${label} · mode connecté${bestBadge >= 50 ? ' · badge ' + bestBadge + '%' : ''}`;
     bonusEl.style.display = 'block';
   } else {
     bonusEl.style.display = 'none';
