@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#c8a96e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Boggle">
+<title>Boggle Français</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:#0d0d0f; --surface:#16161a; --surface2:#1e1e24;
+    --border:#2a2a35; --gold:#c8a96e; --gold-light:#e8c98e;
+    --cream:#f0e8d8; --red:#e05252; --green:#52c97a;
+    --text:#d8d0c8; --text-dim:#6a6478;
+    --tile-bg:#1a1a22; --tile-active:#2a2438; --tile-border:#30304a;
+    --pad: 10px; --gap: 6px;
+    --tile-size: min(
+      calc((100vw - 2*var(--pad) - 3*var(--gap)) / 4),
+      calc((100dvh - 2*var(--pad) - 3*var(--gap) - 140px) / 4)
+    );
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html { height: 100%; }
+  body {
+    height: 100dvh; width: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace;
+    overflow: hidden; user-select: none;
+  }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:1000; opacity:0.4;
+  }
+
+  /* ══ LOADING ══ */
+  #loadingScreen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 900; gap: 20px; padding: 32px;
+  }
+  #loadingScreen h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.8rem, 7vw, 2.6rem);
+    color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  #loadingMsg {
+    font-size: 0.68rem; letter-spacing: 0.2em; color: var(--text-dim);
+    text-transform: uppercase; text-align: center; line-height: 1.9;
+  }
+  .bar-wrap { width: min(88vw, 300px); height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  #progressBar { height: 100%; width: 0%; background: var(--gold); border-radius: 2px; transition: width 0.25s ease; }
+  #errorMsg {
+    font-size: 0.7rem; color: var(--red); text-align: center;
+    max-width: 320px; line-height: 1.9; display: none;
+    border: 1px solid rgba(224,82,82,0.3); border-radius: 10px; padding: 16px 20px;
+  }
+
+  /* ══ BOUTONS MODE ══ */
+  .mode-btns { display: flex; flex-direction: column; gap: 12px; width: min(88vw, 280px); }
+  .btn-mode {
+    padding: 15px 24px;
+    border: 2px solid var(--gold); border-radius: 12px;
+    background: var(--gold); color: #0d0d0f;
+    font-family: 'DM Mono', monospace; font-size: 0.82rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    cursor: pointer; font-weight: 500;
+    transition: background .15s, transform .1s;
+  }
+  .btn-mode:hover { background: var(--gold-light); transform: scale(1.02); }
+  .btn-mode.outline { background: transparent; color: var(--gold); }
+  .btn-mode.outline:hover { background: rgba(200,169,110,0.08); }
+
+  /* ══ ÉCRANS MULTI ══ */
+  .flow-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 850; gap: 14px; padding: 32px;
+  }
+  .flow-screen h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.4rem, 5vw, 2rem);
+    color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .flow-sub {
+    font-size: 0.6rem; letter-spacing: 0.2em; color: var(--text-dim);
+    text-transform: uppercase; text-align: center; margin-bottom: 4px;
+  }
+
+  /* ══ CODE AFFICHÉ ══ */
+  .game-code-display {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 8vw, 3rem);
+    font-weight: 900; color: var(--gold-light);
+    letter-spacing: 0.15em; text-align: center;
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: 14px; padding: 16px 28px;
+  }
+  .code-hint {
+    font-size: 0.58rem; letter-spacing: 0.15em; color: var(--text-dim);
+    text-transform: uppercase; text-align: center; line-height: 2;
+    max-width: 280px;
+  }
+
+  /* ══ INPUTS ══ */
+  .game-input {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 12px 18px;
+    color: var(--cream); font-family: 'DM Mono', monospace;
+    font-size: 1rem; letter-spacing: 0.18em; text-transform: uppercase;
+    width: min(88vw, 280px); text-align: center; outline: none;
+    transition: border-color .2s;
+  }
+  .game-input:focus { border-color: var(--gold); }
+  .input-label {
+    font-size: 0.55rem; letter-spacing: 0.2em; color: var(--text-dim);
+    text-transform: uppercase; text-align: center;
+  }
+  .input-error { font-size: 0.6rem; color: var(--red); letter-spacing: 0.1em; text-align: center; min-height: 16px; }
+
+  /* ══ BTN RETOUR ══ */
+  .btn-back {
+    position: absolute; top: 20px; left: 20px;
+    background: transparent; border: none; color: var(--text-dim);
+    font-family: 'DM Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 0.15em; cursor: pointer; padding: 6px 10px;
+    text-transform: uppercase;
+  }
+  .btn-back:hover { color: var(--gold); }
+
+  /* ══ GAME UI ══ */
+  #gameUI {
+    display: none; flex-direction: column; align-items: center;
+    height: 100dvh; width: 100%;
+    padding: var(--pad);
+    padding-top: max(var(--pad), env(safe-area-inset-top));
+    padding-bottom: max(var(--pad), env(safe-area-inset-bottom));
+    gap: 4px; overflow: hidden;
+  }
+  #gameHeader {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px; width: 100%; flex-shrink: 0;
+  }
+  #gameHeader h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.2rem, 4.5vw, 1.8rem);
+    font-weight: 900; color: var(--gold);
+    letter-spacing: 0.08em; text-transform: uppercase; line-height: 1;
+  }
+  #dictInfo { font-size: 0.5rem; color: var(--text-dim); letter-spacing: 0.1em; }
+  #authorInfo { font-size: 0.5rem; color: var(--gold); letter-spacing: 0.1em; }
+  #multiInfo { font-size: 0.52rem; color: var(--gold-light); letter-spacing: 0.12em; display: none; }
+
+  .top-bar { display: flex; gap: 8px; width: 100%; flex-shrink: 0; }
+  .stat-box { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; text-align: center; }
+  .stat-label { font-size: 0.48rem; letter-spacing: 0.2em; color: var(--text-dim); text-transform: uppercase; display: block; margin-bottom: 1px; }
+  .stat-value { font-size: 1.2rem; font-weight: 500; color: var(--gold); font-family: 'Playfair Display', serif; line-height: 1; }
+
+  .timer-bar { width: 100%; height: 3px; background: var(--surface2); border-radius: 2px; flex-shrink: 0; }
+  .timer-fill { height: 100%; background: var(--gold); border-radius: 2px; transition: width 1s linear, background 0.3s; }
+  .timer-fill.urgent { background: var(--red); }
+
+  .current-word { height: 32px; display: flex; align-items: center; justify-content: center; gap: 2px; flex-shrink: 0; }
+  .word-letter { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; color: var(--gold-light); animation: letterPop .12s ease-out; }
+  @keyframes letterPop {
+    0%  { transform: scale(.6) translateY(4px); opacity: 0; }
+    100%{ transform: scale(1)  translateY(0);   opacity: 1; }
+  }
+  .word-status { font-size: .62rem; letter-spacing: .15em; height: 15px; text-align: center; flex-shrink: 0; }
+  .word-status.valid   { color: var(--green); }
+  .word-status.invalid { color: var(--red); }
+  .word-status.short   { color: var(--text-dim); }
+
+  .grid-container { position: relative; touch-action: none; flex-shrink: 0; align-self: center; }
+  .grid { display: grid; grid-template-columns: repeat(4, var(--tile-size)); grid-template-rows: repeat(4, var(--tile-size)); gap: var(--gap); }
+  .tile {
+    width: var(--tile-size); height: var(--tile-size);
+    background: var(--tile-bg); border: 1.5px solid var(--tile-border);
+    border-radius: calc(var(--tile-size) * 0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', serif; font-size: calc(var(--tile-size) * 0.42);
+    font-weight: 700; color: var(--cream); cursor: pointer; position: relative;
+    transition: background .12s, border-color .12s, transform .1s, box-shadow .12s; overflow: hidden;
+  }
+  .tile::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.06), transparent 70%); border-radius: inherit; pointer-events: none; }
+  .tile.selected { background: var(--tile-active); border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 16px rgba(200,169,110,.25); color: var(--gold-light); transform: scale(1.06); z-index: 2; }
+  .tile.path { background: #201c30; border-color: #5a4a80; color: #b09ad8; }
+  .tile.hidden-letter { color: transparent !important; }
+
+  @keyframes tileReveal {
+    0%  { transform: rotateY(90deg) scale(.8); opacity: 0; }
+    60% { transform: rotateY(-8deg) scale(1.05); }
+    100%{ transform: rotateY(0deg)  scale(1);   opacity: 1; }
+  }
+  .tile.reveal { animation: tileReveal .35s ease-out forwards; }
+  @keyframes tileUsed {
+    0%  { transform: scale(1.06); }
+    50% { transform: scale(1.12); background: #2a4020; border-color: var(--green); }
+    100%{ transform: scale(1); }
+  }
+
+  .path-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+  .path-svg path { fill: none; stroke: var(--gold); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: .5; filter: drop-shadow(0 0 4px rgba(200,169,110,.6)); }
+
+  .words-section { width: 100%; flex-shrink: 0; min-height: 0; }
+  .words-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .words-label { font-size: .52rem; letter-spacing: .2em; color: var(--text-dim); text-transform: uppercase; }
+  .words-count { font-size: .52rem; color: var(--text-dim); }
+  .words-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 52px; overflow-y: auto; }
+  .word-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; font-size: .68rem; color: var(--gold); animation: chipIn .2s ease-out; }
+  @keyframes chipIn { from{opacity:0;transform:scale(.8)} to{opacity:1;transform:scale(1)} }
+
+  .controls { width: 100%; display: flex; justify-content: center; flex-shrink: 0; }
+  .btn-new { padding: 7px 24px; border: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--text-dim); font-family: 'DM Mono', monospace; font-size: .6rem; letter-spacing: .15em; text-transform: uppercase; cursor: pointer; transition: all .15s; }
+  .btn-new:hover { border-color: var(--gold); color: var(--gold); }
+
+  .score-popup { position: fixed; pointer-events: none; font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; color: var(--gold); z-index: 500; animation: floatUp 1s ease-out forwards; }
+  @keyframes floatUp { 0%{ opacity:1; transform:translateY(0) scale(1); } 100%{ opacity:0; transform:translateY(-55px) scale(1.3); } }
+
+  /* ── Overlays ── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(13,13,15,.93);
+    display: flex; flex-direction: column; align-items: center;
+    z-index: 200; backdrop-filter: blur(8px); animation: fadeIn .3s ease;
+    gap: 0; padding: 0 24px; overflow-y: auto; overflow-x: hidden;
+  }
+  /* Spacers flexibles : centrent le contenu quand il y a de la place,
+     disparaissent (min-height:0) quand le contenu deborde => scroll libre */
+  .overlay::before, .overlay::after {
+    content: ''; display: block; flex: 1 1 32px; min-height: 0;
+  }
+  .overlay > * { flex-shrink: 0; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .overlay h2 { font-family: 'Playfair Display', serif; font-size: 2.2rem; color: var(--gold); margin-bottom: 6px; }
+  .final-score { font-size: 4rem; font-family: 'Playfair Display', serif; color: var(--gold-light); line-height: 1; margin-bottom: 4px; }
+  .final-sub { font-size: .68rem; letter-spacing: .22em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 16px; }
+  .found-words { max-height: 120px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-width: 340px; margin-bottom: 18px; }
+  .btn-replay { padding: 13px 40px; border: 2px solid var(--gold); border-radius: 10px; background: var(--gold); color: #0d0d0f; font-family: 'DM Mono', monospace; font-size: .8rem; letter-spacing: .15em; text-transform: uppercase; cursor: pointer; font-weight: 500; transition: background .15s; }
+  .btn-replay:hover { background: var(--gold-light); }
+
+  /* ── Leaderboard ── */
+  .leaderboard { width: 100%; max-width: 340px; margin-bottom: 14px; }
+  .leaderboard-title { font-size: .65rem; letter-spacing: .22em; color: var(--gold); text-transform: uppercase; margin-bottom: 8px; text-align: center; }
+  .lb-row { display: flex; align-items: center; padding: 9px 12px; border-radius: 6px; margin-bottom: 4px; background: var(--surface); border: 1px solid var(--border); font-size: .76rem; cursor: pointer; transition: background .15s; flex-wrap: wrap; }
+  .lb-row:hover { background: var(--surface2); }
+  .lb-row.me { border-color: var(--gold); background: rgba(200,169,110,.07); }
+  .lb-rank { color: var(--text-dim); width: 20px; flex-shrink: 0; }
+  .lb-name { color: var(--cream); flex: 1; margin: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-stats { display: flex; gap: 10px; flex-shrink: 0; align-items: center; }
+  .lb-score { color: var(--gold); font-family: 'Playfair Display', serif; font-size: .96rem; }
+  .lb-wc { color: var(--text); font-size: .68rem; }
+  .lb-words { display: none; width: 100%; flex-wrap: wrap; gap: 4px; padding: 8px 0 2px 28px; }
+  .lb-words.open { display: flex; }
+  .lb-hint { font-size: .62rem; color: var(--gold-light); text-align: center; margin-top: 7px; letter-spacing: .08em; opacity: .75; }
+  .lb-word-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px; font-size: .70rem; color: var(--gold); }
+  @keyframes pulseGlow {
+    0%,100% { text-shadow: 0 0 4px rgba(224,82,82,.4); }
+    50%      { text-shadow: 0 0 14px rgba(224,82,82,.9), 0 0 28px rgba(224,82,82,.5); }
+  }
+  .winner { color: var(--red) !important; animation: pulseGlow 1.8s ease-in-out infinite; }
+  .word-unique { color: var(--red) !important; border-color: rgba(224,82,82,.4) !important; animation: pulseGlow 1.8s ease-in-out infinite; }
+
+  /* ── Countdown ── */
+  #countdownOverlay {
+    position: fixed; inset: 0; background: rgba(13,13,15,.92);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 250; backdrop-filter: blur(6px); gap: 12px;
+  }
+  #countdownOverlay .cd-label { font-size: .65rem; letter-spacing: .25em; color: var(--text-dim); text-transform: uppercase; }
+  #countdownNum { font-family: 'Playfair Display', serif; font-size: 6rem; font-weight: 900; color: var(--gold); line-height: 1; }
+  #countdownAnalysis { font-size: 1rem; letter-spacing: .08em; color: var(--cream); text-align: center; min-height: 1.4em; }
+  @keyframes cdPop { 0%{transform:scale(1.6);opacity:0} 40%{transform:scale(.9);opacity:1} 100%{transform:scale(1);opacity:1} }
+
+  /* ── Lobby cards ── */
+  .game-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .game-card.gc-expired { opacity: .52; }
+  .gc-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .gc-code { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--gold-light); letter-spacing: .1em; }
+  .gc-expires { font-size: .72rem; color: var(--gold); letter-spacing: .08em; font-variant-numeric: tabular-nums; opacity: .85; }
+  .gc-total-words { font-size: .62rem; color: var(--text-dim); letter-spacing: .08em; text-align: center; }
+  .gc-players { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+  .gc-player-row { display: flex; justify-content: space-between; align-items: center; font-size: .64rem; padding: 3px 0; border-bottom: 1px solid var(--border); }
+  .gc-player-row:last-child { border-bottom: none; }
+  .gc-player-name { color: var(--cream); }
+  .gc-player-score { color: var(--gold); font-family: 'Playfair Display', serif; font-size: .78rem; }
+  .gc-no-players { font-size: .58rem; color: var(--text-dim); font-style: italic; padding: 4px 0; }
+  .gc-expired-label { font-size: .55rem; color: var(--text-dim); letter-spacing: .15em; text-transform: uppercase; text-align: center; padding: 4px 0; }
+  .btn-join-card { width: 100%; padding: 8px; border: 1px solid var(--gold); border-radius: 7px; background: transparent; color: var(--gold); font-family: 'DM Mono', monospace; font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; transition: all .15s; }
+  .btn-join-card:hover { background: rgba(200,169,110,.1); }
+
+  /* ── Notification ── */
+  /* ── Lobby expired ── */
+  .gc-expired { opacity: .55; }
+  .gc-expired-label { font-size: .55rem; color: var(--text-dim); letter-spacing: .15em; text-transform: uppercase; text-align: center; padding: 4px 0; }
+
+  .notif { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 20px; font-size: .75rem; color: var(--text-dim); letter-spacing: .1em; z-index: 600; animation: notifAnim 1.4s ease-out forwards; pointer-events: none; }
+  @keyframes notifAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(.9)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-58%) scale(.95)} }
+</style>
+</head>
+<body>
+
+<!-- ════ LOADING ════ -->
+<div id="loadingScreen">
+  <h2>Boggle</h2>
+  <div id="loadingMsg">Chargement du dictionnaire…</div>
+  <div class="bar-wrap"><div id="progressBar"></div></div>
+  <div id="errorMsg"></div>
+  <div class="mode-btns" id="modeBtns" style="display:none;">
+    <button class="btn-mode" id="btnSolo">Jouer seul</button>
+    <button class="btn-mode outline" id="btnMulti">Jouer à plusieurs</button>
+  </div>
+</div>
+
+<!-- ════ MULTI SCREEN — LOBBY ════ -->
+<div id="multiScreen" class="flow-screen" style="padding:16px;overflow-y:auto;justify-content:flex-start;padding-top:56px;">
+  <button class="btn-back" id="btnBackToHome">← Retour</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;width:100%;max-width:480px;margin-bottom:10px;">
+    <h2 style="margin-bottom:0;">Multijoueurs</h2>
+    <button style="padding:8px 16px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold);color:#0d0d0f;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;font-weight:500;" id="btnCreate">+ Nouvelle partie</button>
+  </div>
+  <p style="font-size:.55rem;letter-spacing:.18em;color:var(--text-dim);text-transform:uppercase;width:100%;max-width:480px;margin-bottom:12px;">Parties actives — expirent après 72h</p>
+  <div id="lobbyList" style="width:100%;max-width:480px;display:flex;flex-direction:column;gap:8px;"><div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:24px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div></div>
+</div>
+
+<!-- ════ CODE SCREEN ════ -->
+<div id="codeScreen" class="flow-screen">
+  <button class="btn-back" id="btnBackToMulti2">← Retour</button>
+  <h2>Partie créée !</h2>
+  <p class="code-hint">Votre partie est visible dans le lobby.<br>Elle expire dans <strong style="color:var(--gold)">72 heures</strong>.</p>
+  <div class="game-code-display" id="codeDisplay">——</div>
+  <span class="input-label" style="margin-top:4px;">Votre pseudo</span>
+  <input class="game-input" id="creatorPseudoInput" maxlength="20" placeholder="Votre prénom">
+  <div class="input-error" id="codeError"></div>
+  <button class="btn-mode" id="btnStartCreator" style="margin-top:4px;">Jouer maintenant</button>
+</div>
+
+<!-- ════ MODAL PSEUDO ════ -->
+<div id="pseudoModal" style="position:fixed;inset:0;background:rgba(13,13,15,.88);display:none;align-items:flex-start;justify-content:center;z-index:900;backdrop-filter:blur(6px);overflow-y:auto;padding:80px 16px 40px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 24px;width:min(88vw,320px);display:flex;flex-direction:column;gap:12px;align-items:center;flex-shrink:0;">
+    <h3 style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--gold);letter-spacing:.08em;">Rejoindre</h3>
+    <p class="flow-sub" id="pseudoModalSub" style="margin-bottom:0;">Partie ——</p>
+    <input class="game-input" id="pseudoInput" maxlength="20" placeholder="Votre prénom" autocomplete="off">
+    <div id="pseudoError" style="font-size:.6rem;color:var(--red);letter-spacing:.1em;min-height:14px;text-align:center;"></div>
+    <div style="display:flex;gap:8px;width:100%;">
+      <button id="btnPseudoCancel" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;">Annuler</button>
+      <button id="btnPseudoConfirm" style="flex:2;padding:10px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold);color:#0d0d0f;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-weight:500;">Jouer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ JEU ════ -->
+<div id="gameUI">
+  <div id="gameHeader">
+    <h1>Boggle</h1>
+    <span id="dictInfo"></span>
+    <span id="authorInfo">Sébastien Dumortier — Avril 2026</span>
+    <span id="multiInfo"></span>
+  </div>
+  <div class="top-bar">
+    <div class="stat-box"><span class="stat-label">Score</span><span class="stat-value" id="score">0</span></div>
+    <div class="stat-box"><span class="stat-label">Temps</span><span class="stat-value" id="timer">3:00</span></div>
+    <div class="stat-box"><span class="stat-label">Mots</span><span class="stat-value" id="wordCount">0</span></div>
+  </div>
+  <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+  <div class="current-word" id="currentWord"></div>
+  <div style="display:flex;align-items:center;justify-content:center;height:18px;flex-shrink:0;">
+    <div class="word-status" id="wordStatus" style="height:auto;"></div>
+  </div>
+  <div class="grid-container" id="gridContainer">
+    <svg class="path-svg" id="pathSvg"></svg>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="words-section">
+    <div class="words-header">
+      <span class="words-label">Mots trouvés</span>
+      <span class="words-count" id="wordsCountLabel">0 mot</span>
+    </div>
+    <div class="words-list" id="wordsList"></div>
+  </div>
+  <div class="controls">
+    <button class="btn-new" id="btnMenu">Menu</button>
+  </div>
+</div>
+
+<!-- ════ COUNTDOWN ════ -->
+<div id="countdownOverlay">
+  <div class="cd-label">Préparez-vous !</div>
+  <div id="countdownNum">3</div>
+  <div id="countdownAnalysis">Analyse en cours…</div>
+</div>
+
+
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+// ══ Firebase init ══
+let db = null;
+try {
+  const app = firebase.initializeApp({
+    apiKey: "AIzaSyCYkcBWDpBzRDaGlaVB5XiVDBWcxsimHMo",
+    authDomain: "boggle-7b3e5.firebaseapp.com",
+    projectId: "boggle-7b3e5",
+    storageBucket: "boggle-7b3e5.firebasestorage.app",
+    messagingSenderId: "523024246479",
+    appId: "1:523024246479:web:bc1af588e9e3fff18df9ba"
+  });
+  db = firebase.firestore();
+} catch(e) {
+  console.error('Firebase init failed:', e);
+}
+
+// ══════════════════════════════════════════════════════════
+// CONSTANTES
+// ══════════════════════════════════════════════════════════
+const GAME_DURATION  = 180;
+const N              = 4;
+const MULTI_TTL_MS   = 72 * 60 * 60 * 1000;
+const WEEK_MS        = 7 * 24 * 60 * 60 * 1000;
+
+const FRENCH_DICE = [
+  'AELMNU','AEHLOS','AINOTW','ABORTU','EILTUZ','AEIPSV','AEINRT',
+  'EIORTY','ADEILS','ACEINO','ACELRS','EJLRST','EIPRSU','AEKOQS',
+  'ACFNTX','CEGILR'
+]; // Rang #1 — optimisé ODS6, 26 lettres couvertes
+
+const CODE_WORDS = [
+  'AIGLE','ALOES','ARBRE','BISON','BUTOR','CALAO','CARPE','CARDE',
+  'CHIEN','CERFE','CACAO','COBRA','COLZA','COYPU','CYGNE','DAIMS',
+  'DINGO','DINDE','EPINE','FURET','FAUVE','FELIN','FRENE','GENET',
+  'HIBOU','GRIVE','HELIX','HERON','GECKO','HYDRE','HYENE','LAPIN',
+  'LAMAS','LILAS','LIMON','LUPIN','LEMUR','MAMBA','MAUVE','MERLE',
+  'MILAN','MORUE','MULET','NAVET','NOYER','OBIER','OKAPI','OLIVE',
+  'ORVET','MOULE','LOUVE','PALME','PANDA','MULOT','PLUME','POULE',
+  'PRUNE','PONEY','RATON','RENNE','AULNE','RONCE','SAPIN','SAUGE',
+  'BETTE','SERIN','TAPIR','TAUPE','THUYA','TIGRE','PRELE','VARAN',
+  'CHENE','LOTUS','YUCCA','ZEBRE','MURIER'
+].filter(w => w.length === 5);
+
+// ══════════════════════════════════════════════════════════
+// DICTIONNAIRE
+// ══════════════════════════════════════════════════════════
+const dictionary = new Set();
+const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+
+async function loadDictionary() {
+  setMsg('Chargement du dictionnaire…'); setBar(5);
+  let text;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const resp = await fetch('ODS.txt', { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} — ODS.txt introuvable.`);
+    setBar(30);
+    text = await resp.text();
+    setBar(60);
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      showError('Délai dépassé — ODS.txt trop long à charger.\nVérifiez que le fichier est bien dans le dépôt GitHub.');
+    } else {
+      showError(e.message);
+    }
+    return;
+  }
+
+  setMsg('Chargement des mots…'); setBar(62);
+  const lines = text.replace(/\r/g,'').split('\n');
+  let n=0;
+  for (let i=0; i<lines.length; i++) {
+    const w = lines[i].trim(); if (!w) continue;
+    if (w.length>=3 && w.length<=16) dictionary.add(normalize(w));
+    n++;
+    if (n%50000===0) { setBar(62+Math.min(33,(n/lines.length*33)|0)); await new Promise(r=>setTimeout(r,0)); }
+  }
+  setBar(100);
+  const count = dictionary.size.toLocaleString('fr-FR');
+  setMsg(`${count} mots chargés ✓`);
+  document.getElementById('dictInfo').textContent = `ODS · ${count} mots`;
+  await new Promise(r=>setTimeout(r,1800));
+  document.getElementById('loadingMsg').textContent = 'Prêt !';
+  document.querySelector('.bar-wrap').style.display = 'none';
+  document.getElementById('modeBtns').style.display = 'flex';
+  purgeOldGames();
+  // Construction du trie en tâche de fond
+  buildTrieInWorker(dictionary);
+}
+
+async function purgeOldGames() {
+  if (!db) return;
+  try {
+    const cutoff = Date.now() - WEEK_MS;
+    const snap = await db.collection('games').orderBy('createdAt','asc').limit(100).get();
+    const batch = db.batch(); let count = 0;
+    snap.forEach(doc => {
+      const d = doc.data();
+      const ts = d.createdAt ? d.createdAt.toMillis() : (d.createdAtMs || 0);
+      if (ts && ts < cutoff) { batch.delete(doc.ref); count++; }
+    });
+    if (count > 0) { await batch.commit(); console.log(`Purge: ${count} supprimée(s)`); }
+  } catch(e) { console.warn('Purge:', e.message); }
+}
+
+function setMsg(t) { document.getElementById('loadingMsg').textContent = t; }
+function setBar(p) { document.getElementById('progressBar').style.width = p+'%'; }
+function showError(msg) {
+  document.getElementById('loadingMsg').style.display='none';
+  const el=document.getElementById('errorMsg'); el.style.display='block';
+  el.innerHTML=msg.replace(/\n/g,'<br>');
+}
+
+// ══════════════════════════════════════════════════════════
+// ÉTAT
+// ══════════════════════════════════════════════════════════
+let board=[], selectedPath=[], foundWords=new Set();
+let score=0, timeLeft=GAME_DURATION, gameActive=false;
+let timerInterval=null, isDragging=false, gestureStart=null;
+let currentMode='solo', currentGameCode='', currentPseudo='';
+let firestoreUnsub=null;
+let boardAnalysis = null; // { wordCount, maxScore } — rempli par le worker
+
+// ══════════════════════════════════════════════════════════
+// TRIE — construit en tâche de fond après chargement du dico
+// ══════════════════════════════════════════════════════════
+let trieRoot = null;
+let trieWorker = null;
+
+function buildTrieInWorker(words) {
+  const workerCode = `
+    function buildTrie(words) {
+      const root = Object.create(null);
+      for (const w of words) {
+        let node = root;
+        for (const ch of w) {
+          if (!node[ch]) node[ch] = Object.create(null);
+          node = node[ch];
+        }
+        node['$'] = true;
+      }
+      return root;
+    }
+
+    function analyzeBoard(board, trie) {
+      const N = 4;
+      const adj = [];
+      for (let i = 0; i < 16; i++) {
+        adj[i] = [];
+        const r = Math.floor(i / N), c = i % N;
+        for (let j = 0; j < 16; j++) {
+          const dr = Math.abs(r - Math.floor(j/N)), dc = Math.abs(c - j%N);
+          if (dr<=1 && dc<=1 && i!==j) adj[i].push(j);
+        }
+      }
+      function score(w) {
+        const n=w.length; if(n<=4)return 1; if(n===5)return 2;
+        if(n===6)return 3; if(n===7)return 5; return 11;
+      }
+      const found = new Set();
+      function dfs(idx, path, node, word) {
+        if (word.length >= 3 && node['$']) found.add(word);
+        for (const nb of adj[idx]) {
+          if (path.includes(nb)) continue;
+          const ch = board[nb];
+          if (!node[ch]) continue;
+          path.push(nb);
+          dfs(nb, path, node[ch], word + ch);
+          path.pop();
+        }
+      }
+      for (let i = 0; i < 16; i++) {
+        const ch = board[i];
+        if (!trie[ch]) continue;
+        dfs(i, [i], trie[ch], ch);
+      }
+      let maxScore = 0;
+      for (const w of found) maxScore += score(w);
+      return { wordCount: found.size, maxScore };
+    }
+
+    self.onmessage = function(e) {
+      const { type, words, board } = e.data;
+      if (type === 'build') {
+        const trie = buildTrie(words);
+        self.postMessage({ type: 'ready', trie });
+      } else if (type === 'analyze') {
+        const result = analyzeBoard(board, e.data.trie);
+        self.postMessage({ type: 'analysis', ...result });
+      }
+    };
+  `;
+  const blob = new Blob([workerCode], { type: 'application/javascript' });
+  trieWorker = new Worker(URL.createObjectURL(blob));
+  trieWorker.onmessage = (e) => {
+    if (e.data.type === 'ready') {
+      trieRoot = e.data.trie;
+      // Si une grille est déjà en attente d'analyse, lancer maintenant
+      if (board.length === 16) analyzeCurrentBoard();
+    } else if (e.data.type === 'analysis') {
+      boardAnalysis = { wordCount: e.data.wordCount, maxScore: e.data.maxScore };
+      showBoardAnalysis();
+    }
+  };
+  trieWorker.postMessage({ type: 'build', words: [...words] });
+}
+
+function analyzeCurrentBoard() {
+  if (!trieRoot || !trieWorker || board.length !== 16) return;
+  boardAnalysis = null;
+  trieWorker.postMessage({ type: 'analyze', board, trie: trieRoot });
+}
+
+function showBoardAnalysis() {
+  const el = document.getElementById('countdownAnalysis');
+  if (!el || !boardAnalysis) return;
+  el.textContent = `${boardAnalysis.wordCount} mot${boardAnalysis.wordCount!==1?'s':''} possibles · max ${boardAnalysis.maxScore} pt${boardAnalysis.maxScore!==1?'s':''}`;
+}
+// ══════════════════════════════════════════════════════════
+function seededRng(seed) {
+  let s=0;
+  for (let i=0;i<seed.length;i++) s=(s*31+seed.charCodeAt(i))>>>0;
+  return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; };
+}
+function boardFromSeed(seed) {
+  const rng=seededRng(seed), dice=[...FRENCH_DICE];
+  for (let i=dice.length-1;i>0;i--) { const j=Math.floor(rng()*(i+1)); [dice[i],dice[j]]=[dice[j],dice[i]]; }
+  return dice.map(d=>d[Math.floor(rng()*d.length)]);
+}
+function randomBoard() {
+  const dice=[...FRENCH_DICE];
+  for (let i=dice.length-1;i>0;i--) { const j=Math.random()*(i+1)|0; [dice[i],dice[j]]=[dice[j],dice[i]]; }
+  return dice.map(d=>d[Math.random()*d.length|0]);
+}
+
+async function generateCode() {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const w = CODE_WORDS[Math.floor(Math.random() * CODE_WORDS.length)];
+    const n = 10 + Math.floor(Math.random() * 90);
+    const code = w + n;
+    try {
+      const snap = await db.collection('games').doc(code).get();
+      if (!snap.exists) return code;
+      const d = snap.data();
+      const ts = d.createdAt ? d.createdAt.toMillis() : (d.createdAtMs || 0);
+      if (Date.now() - ts > WEEK_MS) return code; // recyclable
+    } catch(e) { return code; }
+  }
+  const w = CODE_WORDS[Math.floor(Math.random() * CODE_WORDS.length)];
+  return w + (10 + Math.floor(Math.random() * 90));
+}
+
+// ══════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════
+function hide(...ids) { ids.forEach(id=>document.getElementById(id).style.display='none'); }
+function show(id, disp='flex') { document.getElementById(id).style.display=disp; }
+
+let _lobbyTimerInterval = null;
+
+function fmtCountdown(ms) {
+  if (ms <= 0) return 'Expirée';
+  const s = Math.floor(ms / 1000);
+  const hh = Math.floor(s / 3600).toString().padStart(2,'0');
+  const mm = Math.floor((s % 3600) / 60).toString().padStart(2,'0');
+  const ss = (s % 60).toString().padStart(2,'0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+function showHome() {
+  if (_lobbyTimerInterval) { clearInterval(_lobbyTimerInterval); _lobbyTimerInterval = null; }
+  document.getElementById('pseudoModal').style.display = 'none';
+  hide('multiScreen','codeScreen','gameUI');
+  show('loadingScreen');
+  document.getElementById('modeBtns').style.display='flex';
+  document.getElementById('loadingMsg').style.display='none';
+  document.querySelector('.bar-wrap').style.display='none';
+}
+function showMulti() {
+  if (_lobbyTimerInterval) { clearInterval(_lobbyTimerInterval); _lobbyTimerInterval = null; }
+  hide('loadingScreen','codeScreen','gameUI');
+  show('multiScreen');
+  loadLobby();
+}
+function showCode() {
+  if (_lobbyTimerInterval) { clearInterval(_lobbyTimerInterval); _lobbyTimerInterval = null; }
+  document.getElementById('pseudoModal').style.display = 'none';
+  hide('multiScreen');
+  show('codeScreen');
+}
+
+async function loadLobby() {
+  const list = document.getElementById('lobbyList');
+  list.innerHTML = '<div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:24px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>';
+  if (!db) { list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;">Firebase non disponible.</div>'; return; }
+  try {
+    const now = Date.now();
+    const snap = await db.collection('games').orderBy('createdAt','desc').limit(60).get();
+    const games = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      const ts = d.createdAt ? d.createdAt.toMillis() : (d.createdAtMs || 0);
+      if (ts && (now - ts) < WEEK_MS) games.push({ code: doc.id, ...d });
+    });
+    if (!games.length) {
+      list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.1em;">Aucune partie.<br>Créez-en une !</div>';
+      return;
+    }
+    list.innerHTML = '';
+    games.forEach(g => {
+      const expired = now > g.expiresAt;
+      const players = g.players || {};
+      const sorted = Object.entries(players)
+        .filter(([,v]) => v.score !== undefined)
+        .sort((a,b) => b[1].score - a[1].score);
+      const playersHtml = sorted.length
+        ? sorted.map(([name,val], idx) => `
+            <div class="gc-player-row">
+              <span class="gc-player-name">${idx+1}. ${name}</span>
+              <span class="gc-player-score">${val.score} pts · ${(val.wordList||[]).length} mot${(val.wordList||[]).length!==1?'s':''}</span>
+            </div>`).join('')
+        : '<div class="gc-no-players">Aucun joueur encore</div>';
+      const allWords = new Set();
+      Object.values(players).forEach(v => (v.wordList || []).forEach(w => allWords.add(w)));
+      const totalUniqueWords = allWords.size;
+      const card = document.createElement('div');
+      card.className = 'game-card' + (expired ? ' gc-expired' : '');
+      card.innerHTML = `
+        <div class="gc-top">
+          <span class="gc-code">${g.code}</span>
+          <span class="gc-total-words">${totalUniqueWords} mot${totalUniqueWords !== 1 ? 's' : ''} trouvés</span>
+          <span class="gc-expires" data-expires="${g.expiresAt}">${fmtCountdown(g.expiresAt - now)}</span>
+        </div>
+        <div class="gc-players">${playersHtml}</div>
+        ${expired
+          ? '<div class="gc-expired-label">Partie expirée</div>'
+          : '<button class="btn-join-card">Rejoindre</button>'}
+      `;
+      if (!expired) {
+        card.querySelector('.btn-join-card').addEventListener('click', () => openPseudoModal(g.code, players));
+      }
+      list.appendChild(card);
+    });
+    if (_lobbyTimerInterval) clearInterval(_lobbyTimerInterval);
+    _lobbyTimerInterval = setInterval(() => {
+      document.querySelectorAll('.gc-expires[data-expires]').forEach(el => {
+        el.textContent = fmtCountdown(+el.dataset.expires - Date.now());
+      });
+    }, 1000);
+  } catch(e) {
+    list.innerHTML = `<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;">Erreur de chargement.<br><small>${e.message}</small></div>`;
+  }
+}
+
+let _joinCode = '', _joinPlayers = {};
+function openPseudoModal(code, players) {
+  _joinCode = code; _joinPlayers = players;
+  document.getElementById('pseudoModalSub').textContent = 'Partie ' + code;
+  document.getElementById('pseudoInput').value = '';
+  document.getElementById('pseudoError').textContent = '';
+  document.getElementById('pseudoModal').style.display = 'flex';
+  // focus déclenche le clavier mobile — on ne force pas
+}
+async function confirmJoin() {
+  const pseudo = document.getElementById('pseudoInput').value.trim();
+  if (!pseudo) { document.getElementById('pseudoError').textContent = 'Entrez un pseudo.'; return; }
+  if (_joinPlayers[pseudo]?.score !== undefined) {
+    document.getElementById('pseudoError').textContent = 'Ce pseudo a déjà joué cette partie.'; return;
+  }
+  let snap;
+  try { snap = await db.collection('games').doc(_joinCode).get(); }
+  catch(e) { document.getElementById('pseudoError').textContent = 'Erreur réseau.'; return; }
+  if (!snap.exists) { document.getElementById('pseudoError').textContent = 'Partie introuvable.'; return; }
+  const data = snap.data();
+  if (Date.now() > data.expiresAt) { document.getElementById('pseudoError').textContent = 'Partie expirée.'; return; }
+  document.getElementById('pseudoModal').style.display = 'none';
+  goFullscreen();
+  currentGameCode = _joinCode; currentPseudo = pseudo; currentMode = 'multi';
+  board = data.board;
+  launchGame();
+}
+
+// ══════════════════════════════════════════════════════════
+// PLEIN ÉCRAN
+// ══════════════════════════════════════════════════════════
+function goFullscreen() {
+  const el=document.documentElement;
+  if (el.requestFullscreen) el.requestFullscreen();
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+}
+
+// ══════════════════════════════════════════════════════════
+// SOLO
+// ══════════════════════════════════════════════════════════
+function startSolo() {
+  document.getElementById('pseudoModal').style.display = 'none';
+  goFullscreen(); currentMode='solo'; currentGameCode=''; currentPseudo='';
+  document.getElementById('multiInfo').style.display='none';
+  hide('loadingScreen');
+  show('gameUI');
+  board=randomBoard();
+  initGame();
+}
+
+// ══════════════════════════════════════════════════════════
+// MULTI — CRÉER
+// ══════════════════════════════════════════════════════════
+async function createGame() {
+  if (!db) { showNotif('Firebase non disponible.'); return; }
+  goFullscreen();
+  const code = await generateCode();
+  const boardLetters = boardFromSeed(code);
+  try {
+    await db.collection('games').doc(code).set({
+      board: boardLetters,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdAtMs: Date.now(),
+      expiresAt: Date.now() + MULTI_TTL_MS,
+      players: {}
+    });
+  } catch(e) { showNotif('Erreur Firebase : ' + e.message); return; }
+  currentGameCode = code;
+  document.getElementById('codeDisplay').textContent = code;
+  document.getElementById('codeError').textContent = '';
+  document.getElementById('creatorPseudoInput').value = '';
+  showCode();
+}
+
+async function startAsCreator() {
+  const pseudo=document.getElementById('creatorPseudoInput').value.trim();
+  if (!pseudo) { document.getElementById('codeError').textContent='Entrez votre pseudo.'; return; }
+  currentPseudo=pseudo; currentMode='multi';
+  const snap=await db.collection('games').doc(currentGameCode).get();
+  board=snap.data().board;
+  launchGame();
+}
+
+// ══════════════════════════════════════════════════════════
+// LANCER LE JEU (commun multi)
+// ══════════════════════════════════════════════════════════
+function launchGame() {
+  document.getElementById('multiInfo').textContent=`Partie ${currentGameCode} · ${currentPseudo}`;
+  document.getElementById('multiInfo').style.display='block';
+  hide('codeScreen','loadingScreen','multiScreen');
+  show('gameUI');
+  initGame();
+}
+
+// ══════════════════════════════════════════════════════════
+// INIT JEU
+// ══════════════════════════════════════════════════════════
+function initGame() {
+  selectedPath=[]; foundWords=new Set(); score=0; timeLeft=GAME_DURATION;
+  boardAnalysis=null;
+  const el=document.getElementById('countdownAnalysis');
+  if(el){ el.textContent='Analyse en cours…'; }
+  resetUI(); renderBoard(true); updateTileStates();
+  analyzeCurrentBoard();
+  countdown(revealAndStart);
+}
+
+function revealAndStart() {
+  document.querySelectorAll('.tile').forEach((t,i)=>{
+    setTimeout(()=>{ t.classList.remove('hidden-letter'); t.classList.add('reveal'); }, i*40);
+  });
+  setTimeout(startTimer, N*N*40+100);
+}
+
+// ══════════════════════════════════════════════════════════
+// COUNTDOWN
+// ══════════════════════════════════════════════════════════
+function countdown(cb) {
+  const ov=document.getElementById('countdownOverlay');
+  const el=document.getElementById('countdownNum');
+  ov.style.display='flex'; let n=3; el.textContent=n;
+  el.style.animation='none'; void el.offsetWidth; el.style.animation='cdPop .9s ease-out';
+  const iv=setInterval(()=>{
+    n--;
+    if (n<=0) { clearInterval(iv); ov.style.display='none'; cb(); }
+    else { el.style.animation='none'; void el.offsetWidth; el.style.animation='cdPop .9s ease-out'; el.textContent=n; }
+  },900);
+}
+
+// ══════════════════════════════════════════════════════════
+// HELPERS JEU
+// ══════════════════════════════════════════════════════════
+const isValidWord = w=>w.length>=3 && dictionary.has(normalize(w));
+const isAdjacent  = (a,b)=>{ const dr=Math.abs((a/N|0)-(b/N|0)),dc=Math.abs(a%N-b%N); return dr<=1&&dc<=1&&a!==b; };
+const isDiag      = (a,b)=>Math.abs((a/N|0)-(b/N|0))===1&&Math.abs(a%N-b%N)===1;
+function calcScore(w) { const n=w.length; if(n<=4)return 1; if(n===5)return 2; if(n===6)return 3; if(n===7)return 5; return 11; }
+
+// ══════════════════════════════════════════════════════════
+// RENDU
+// ══════════════════════════════════════════════════════════
+function renderBoard(hidden=false) {
+  const g=document.getElementById('grid'); g.innerHTML='';
+  board.forEach((l,i)=>{
+    const t=document.createElement('div');
+    t.className='tile'+(hidden?' hidden-letter':'');
+    t.dataset.index=i; t.textContent=l; g.appendChild(t);
+  });
+}
+function updateTileStates() {
+  document.querySelectorAll('.tile').forEach(t=>{
+    const i=+t.dataset.index, isLast=selectedPath.length>0&&selectedPath[selectedPath.length-1]===i;
+    t.classList.toggle('selected',isLast);
+    t.classList.toggle('path',selectedPath.includes(i)&&!isLast);
+  });
+  drawPath();
+}
+function getTileCenter(i) {
+  const w=document.getElementById('gridContainer').getBoundingClientRect();
+  const t=document.querySelector(`.tile[data-index="${i}"]`).getBoundingClientRect();
+  return {x:t.left-w.left+t.width/2, y:t.top-w.top+t.height/2};
+}
+function drawPath() {
+  const svg=document.getElementById('pathSvg');
+  if (selectedPath.length<2) { svg.innerHTML=''; return; }
+  const w=document.getElementById('gridContainer');
+  svg.setAttribute('viewBox',`0 0 ${w.offsetWidth} ${w.offsetHeight}`);
+  const d=selectedPath.map((i,k)=>{ const p=getTileCenter(i); return `${k?'L':'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
+  svg.innerHTML=`<path d="${d}"/>`;
+}
+function updateWordDisplay() {
+  const word=selectedPath.map(i=>board[i]).join('');
+  document.getElementById('currentWord').innerHTML=word.split('').map(l=>`<span class="word-letter">${l}</span>`).join('');
+  const st=document.getElementById('wordStatus');
+  if (word.length<3) { st.textContent=word.length?`${word.length} lettre${word.length>1?'s':''}`:''; st.className='word-status short'; }
+  else if (foundWords.has(word)) { st.textContent='Déjà trouvé'; st.className='word-status invalid'; }
+  else if (isValidWord(word)) { const p=calcScore(word); st.textContent=`✓ +${p} pt${p>1?'s':''}`; st.className='word-status valid'; }
+  else { st.textContent='Absent du dictionnaire'; st.className='word-status invalid'; }
+}
+
+// ══════════════════════════════════════════════════════════
+// GESTES
+// ══════════════════════════════════════════════════════════
+function getTileAtPoint(cx,cy) {
+  const w=document.getElementById('gridContainer').getBoundingClientRect();
+  const rx=cx-w.left, ry=cy-w.top; let best=null, bestD=Infinity;
+  document.querySelectorAll('.tile').forEach(t=>{
+    const r=t.getBoundingClientRect(), tcx=r.left-w.left+r.width/2, tcy=r.top-w.top+r.height/2;
+    const d=Math.hypot(rx-tcx,ry-tcy);
+    if (d<r.width*0.47&&d<bestD) { bestD=d; best=+t.dataset.index; }
+  });
+  return best;
+}
+function diagonalOk(sx,sy,ex,ey) {
+  const dx=ex-sx,dy=ey-sy; if(Math.hypot(dx,dy)<8)return false;
+  let a=Math.abs(Math.atan2(dy,dx)*180/Math.PI); if(a>90)a=180-a; return a>=22&&a<=68;
+}
+function onStart(x,y) {
+  if (!gameActive) return;
+  isDragging=true; selectedPath=[]; gestureStart=null;
+  const t=getTileAtPoint(x,y); if(t!==null){selectedPath=[t];gestureStart={x,y};}
+  updateTileStates(); updateWordDisplay();
+}
+function onMove(x,y) {
+  if (!isDragging||!gameActive) return;
+  const t=getTileAtPoint(x,y); if(t===null)return;
+  const last=selectedPath[selectedPath.length-1];
+  if (selectedPath.length>=2&&t===selectedPath[selectedPath.length-2]) { selectedPath.pop(); gestureStart={x,y}; updateTileStates(); updateWordDisplay(); return; }
+  if (t===last||selectedPath.includes(t))return;
+  if (!isAdjacent(last,t))return;
+  if (isDiag(last,t)&&!(gestureStart&&diagonalOk(gestureStart.x,gestureStart.y,x,y)))return;
+  selectedPath.push(t); gestureStart={x,y}; updateTileStates(); updateWordDisplay();
+}
+function onEnd() {
+  if (!isDragging)return; isDragging=false;
+  const word=selectedPath.map(i=>board[i]).join('');
+  if (word.length>=3&&isValidWord(word)&&!foundWords.has(word)) {
+    const pts=calcScore(word); score+=pts; foundWords.add(word);
+    document.getElementById('score').textContent=score;
+    document.getElementById('wordCount').textContent=foundWords.size;
+    document.getElementById('wordsCountLabel').textContent=`${foundWords.size} mot${foundWords.size>1?'s':''}`;
+    selectedPath.forEach(i=>{ const t=document.querySelector(`.tile[data-index="${i}"]`); if(t){t.style.animation='none';void t.offsetWidth;t.style.animation='tileUsed .4s ease-out';} });
+    const chip=document.createElement('div'); chip.className='word-chip'; chip.textContent=`${word} (+${pts})`; document.getElementById('wordsList').prepend(chip);
+    const center=getTileCenter(selectedPath[selectedPath.length-1]);
+    const wr=document.getElementById('gridContainer').getBoundingClientRect();
+    const pop=document.createElement('div'); pop.className='score-popup'; pop.textContent=`+${pts}`;
+    pop.style.left=`${wr.left+center.x}px`; pop.style.top=`${wr.top+center.y-20}px`;
+    document.body.appendChild(pop); setTimeout(()=>pop.remove(),1000);
+  } else if (word.length>=3&&foundWords.has(word)) { showNotif('Déjà trouvé !'); }
+  setTimeout(()=>{ selectedPath=[]; document.getElementById('pathSvg').innerHTML=''; document.getElementById('currentWord').innerHTML=''; document.getElementById('wordStatus').textContent=''; updateTileStates(); },250);
+}
+
+// ══════════════════════════════════════════════════════════
+// TIMER & FIN DE PARTIE
+// ══════════════════════════════════════════════════════════
+function startTimer() {
+  gameActive=true;
+  timerInterval=setInterval(()=>{
+    timeLeft--;
+    const m=timeLeft/60|0, s=timeLeft%60;
+    document.getElementById('timer').textContent=`${m}:${s.toString().padStart(2,'0')}`;
+    document.getElementById('timerFill').style.width=`${(timeLeft/GAME_DURATION)*100}%`;
+    if (timeLeft<=30) document.getElementById('timerFill').classList.add('urgent');
+    if (timeLeft<=0) { clearInterval(timerInterval); gameActive=false; onGameOver(); }
+  },1000);
+}
+
+async function onGameOver() {
+  const words=[...foundWords].sort((a,b)=>b.length-a.length);
+  if (currentMode==='multi') {
+    await saveScore(currentGameCode, currentPseudo, score, words);
+    showMultiOver(words);
+  } else {
+    showSoloOver(words);
+  }
+}
+
+function showSoloOver(words) {
+  const ov=document.createElement('div'); ov.className='overlay';
+  ov.innerHTML=`
+    <h2>Fin de partie</h2>
+    <div class="final-score">${score}</div>
+    <div class="final-sub">point${score!==1?'s':''} — ${foundWords.size} mot${foundWords.size!==1?'s':''}</div>
+    <div class="found-words">${words.map(w=>`<div class="word-chip">${w}&nbsp;(+${calcScore(w)})</div>`).join('')}</div>
+    <button class="btn-replay" id="btnMenuSolo">Menu</button>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#btnMenuSolo').addEventListener('click', goHome);
+}
+
+// ─── Calcule les mots uniques (trouvés par un seul joueur) ───
+function computeUniqueWords(players) {
+  const wordCount = {};
+  Object.values(players).forEach(v => {
+    (v.wordList||[]).forEach(w => { wordCount[w] = (wordCount[w]||0) + 1; });
+  });
+  return new Set(Object.entries(wordCount).filter(([,n])=>n===1).map(([w])=>w));
+}
+
+async function showMultiOver(words) {
+  const snap=await db.collection('games').doc(currentGameCode).get();
+  const players=snap.exists?snap.data().players||{}:{};
+  const ov=document.createElement('div'); ov.className='overlay';
+  ov.innerHTML=`
+    <h2>Fin de partie</h2>
+    <div class="final-score">${score}</div>
+    <div class="final-sub">point${score!==1?'s':''} — ${foundWords.size} mot${foundWords.size!==1?'s':''}</div>
+    <div class="leaderboard">
+      <div class="leaderboard-title">Classement · ${currentGameCode}</div>
+      <div id="lbRows"></div>
+      <div class="lb-hint">Temps réel · Cliquez sur un joueur pour voir ses mots</div>
+    </div>
+    <div style="font-size:.52rem;letter-spacing:.18em;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;align-self:flex-start;max-width:340px;">Vos mots</div>
+    <div class="found-words">${words.map(w=>`<div class="word-chip">${w}&nbsp;(+${calcScore(w)})</div>`).join('')}</div>
+    <button class="btn-replay" id="btnGoHome">Menu</button>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#btnGoHome').addEventListener('click', goHome);
+
+  const lbContainer = ov.querySelector('#lbRows');
+  renderLbRows(players, lbContainer);
+
+  // Ecoute temps reel
+  if (firestoreUnsub) firestoreUnsub();
+  firestoreUnsub=db.collection('games').doc(currentGameCode).onSnapshot(snap=>{
+    if (!lbContainer.isConnected) return;
+    renderLbRows(snap.exists?snap.data().players||{}:{}, lbContainer);
+  });
+}
+
+function renderLbRows(players, container) {
+  const sorted=Object.entries(players)
+    .filter(([,v])=>v.score!==undefined)
+    .sort(([nameA,a],[nameB,b])=>{
+      const scA = (a.wordList||[]).reduce((s,w)=>s+calcScore(w),0);
+      const scB = (b.wordList||[]).reduce((s,w)=>s+calcScore(w),0);
+      if (scB!==scA) return scB-scA;
+      const wA=(a.wordList||[]).length, wB=(b.wordList||[]).length;
+      if (wB!==wA) return wB-wA;
+      const longA=Math.max(0,...(a.wordList||[]).map(w=>w.length));
+      const longB=Math.max(0,...(b.wordList||[]).map(w=>w.length));
+      if (longB!==longA) return longB-longA;
+      return (a.playedAt||0)-(b.playedAt||0);
+    });
+
+  if (!sorted.length) { container.innerHTML='<div class="lb-hint">Aucun score encore</div>'; return; }
+
+  const winner = sorted.length ? sorted[0][0] : null;
+  const uniqueWords = computeUniqueWords(players);
+
+  // Memoriser les lignes ouvertes avant re-rendu
+  const openNames = new Set();
+  container.querySelectorAll('.lb-words.open').forEach(el => openNames.add(el.dataset.player));
+
+  container.innerHTML = '';
+  sorted.forEach(([name,val],idx) => {
+    const isWinner = name === winner && sorted.length > 1;
+    const isMe = name === currentPseudo;
+    const wlist = val.wordList || [];
+    const realScore = wlist.reduce((s,w)=>s+calcScore(w),0);
+
+    const row = document.createElement('div');
+    row.className = 'lb-row' + (isMe?' me':'');
+
+    const wordsHtml = wlist.length
+      ? wlist.map(w => {
+          const isUniq = uniqueWords.has(w);
+          return `<span class="lb-word-chip${isUniq?' word-unique':''}">${w}&nbsp;(+${calcScore(w)})</span>`;
+        }).join('')
+      : '<span style="font-size:.55rem;color:var(--text-dim);">—</span>';
+
+    const isOpen = openNames.has(name);
+
+    row.innerHTML = `
+      <span class="lb-rank">${idx+1}.</span>
+      <span class="lb-name${isWinner?' winner':''}">${name}${isMe?' (moi)':''}</span>
+      <div class="lb-stats">
+        <span class="lb-wc">${wlist.length} mot${wlist.length!==1?'s':''}</span>
+        <span class="lb-score">${realScore} pt${realScore!==1?'s':''}</span>
+      </div>
+      <div class="lb-words${isOpen?' open':''}" data-player="${name}">${wordsHtml}</div>`;
+
+    row.addEventListener('click', () => row.querySelector('.lb-words').classList.toggle('open'));
+    container.appendChild(row);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// FIREBASE — SCORE
+// ══════════════════════════════════════════════════════════
+async function saveScore(code, pseudo, sc, words) {
+  try {
+    await db.collection('games').doc(code).update({
+      [`players.${pseudo}`]: { score:sc, words:words.length, wordList:words, playedAt:Date.now() }
+    });
+  } catch(e) { showNotif('Erreur enregistrement : '+e.message); }
+}
+
+// ══════════════════════════════════════════════════════════
+// RESET & MENU
+// ══════════════════════════════════════════════════════════
+function resetUI() {
+  document.getElementById('score').textContent='0';
+  document.getElementById('timer').textContent='3:00';
+  document.getElementById('wordCount').textContent='0';
+  document.getElementById('wordsCountLabel').textContent='0 mot';
+  document.getElementById('wordsList').innerHTML='';
+  document.getElementById('currentWord').innerHTML='';
+  document.getElementById('wordStatus').textContent='';
+  document.getElementById('pathSvg').innerHTML='';
+  document.getElementById('timerFill').style.width='100%';
+  document.getElementById('timerFill').classList.remove('urgent');
+  document.querySelector('.overlay')?.remove();
+}
+
+function goHome() {
+  clearInterval(timerInterval); gameActive=false;
+  if (firestoreUnsub) { firestoreUnsub(); firestoreUnsub=null; }
+  document.querySelector('.overlay')?.remove();
+  hide('gameUI');
+  showHome();
+}
+
+function showNotif(msg) {
+  document.querySelectorAll('.notif').forEach(n=>n.remove());
+  const n=document.createElement('div'); n.className='notif'; n.textContent=msg;
+  document.body.appendChild(n); setTimeout(()=>n.remove(),1400);
+}
+
+// ══════════════════════════════════════════════════════════
+// ÉVÉNEMENTS GRILLE
+// ══════════════════════════════════════════════════════════
+function attachGridEvents() {
+  const c=document.getElementById('gridContainer');
+  c.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];onStart(t.clientX,t.clientY);},{passive:false});
+  c.addEventListener('touchmove', e=>{e.preventDefault();const t=e.touches[0];onMove(t.clientX,t.clientY); },{passive:false});
+  c.addEventListener('touchend',  e=>{e.preventDefault();onEnd();},{passive:false});
+  c.addEventListener('mousedown', e=>onStart(e.clientX,e.clientY));
+  window.addEventListener('mousemove',e=>{if(isDragging)onMove(e.clientX,e.clientY);});
+  window.addEventListener('mouseup',  ()=>{if(isDragging)onEnd();});
+}
+
+// ══════════════════════════════════════════════════════════
+// WIRING BOUTONS
+// ══════════════════════════════════════════════════════════
+document.getElementById('btnSolo').addEventListener('click', startSolo);
+document.getElementById('btnMulti').addEventListener('click', showMulti);
+document.getElementById('btnBackToHome').addEventListener('click', showHome);
+document.getElementById('btnCreate').addEventListener('click', createGame);
+document.getElementById('btnBackToMulti2').addEventListener('click', showMulti);
+document.getElementById('btnStartCreator').addEventListener('click', startAsCreator);
+document.getElementById('btnMenu').addEventListener('click', goHome);
+document.getElementById('btnPseudoCancel').addEventListener('click', ()=>{ document.getElementById('pseudoModal').style.display='none'; });
+document.getElementById('btnPseudoConfirm').addEventListener('click', confirmJoin);
+document.getElementById('pseudoInput').addEventListener('keydown', e=>{ if(e.key==='Enter') confirmJoin(); });
+
+// ══════════════════════════════════════════════════════════
+// BOOT — purge les anciens Service Workers puis charge
+// ══════════════════════════════════════════════════════════
+attachGridEvents();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(reg => console.log('[SW] Enregistré, scope :', reg.scope))
+    .catch(err => console.warn('[SW] Échec enregistrement :', err));
+}
+loadDictionary();
+</script>
+</body>
+</html>
