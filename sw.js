@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// SERVICE WORKER — Boggle Français
+// SERVICE WORKER — Mots-Lierre
 // Stratégie :
 //   • Shell (HTML, JS Firebase) → cache-first avec revalidation
 //   • ODS.txt                  → cache-first (fichier lourd, stable)
@@ -7,10 +7,10 @@
 //   • Firebase API              → réseau uniquement (toujours online)
 // ══════════════════════════════════════════════════════════
 
-const VERSION   = 'boggle-v1';
-const SHELL     = 'boggle-shell-v1';
-const DICT      = 'boggle-dict-v1';
-const FONTS     = 'boggle-fonts-v1';
+const VERSION   = 'mots-lierre-v1';
+const SHELL     = 'mots-lierre-shell-v1';
+const DICT      = 'mots-lierre-dict-v1';
+const FONTS     = 'mots-lierre-fonts-v1';
 
 // Fichiers à précacher au moment de l'install
 const SHELL_ASSETS = [
