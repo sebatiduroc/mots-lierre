@@ -1225,6 +1225,14 @@ async function loadLobby() {
       const allWords = new Set();
       Object.values(players).forEach(v => (v.wordList || []).forEach(w => allWords.add(w)));
       const totalUniqueWords = allWords.size;
+
+      // Vérifier si le joueur connecté a déjà joué cette partie
+      let alreadyPlayed = false;
+      if (currentUser) {
+        const pseudo = currentUser.displayName || currentUser.email || currentUser.uid;
+        alreadyPlayed = players[pseudo]?.score !== undefined;
+      }
+
       const card = document.createElement('div');
       card.className = 'game-card' + (expired ? ' gc-expired' : '');
       card.innerHTML = `
@@ -1236,9 +1244,11 @@ async function loadLobby() {
         <div class="gc-players">${playersHtml}</div>
         ${expired
           ? '<div class="gc-expired-label">Partie expirée</div>'
-          : '<button class="btn-join-card">Rejoindre</button>'}
+          : alreadyPlayed
+            ? '<button class="btn-join-card" disabled style="opacity:.4;cursor:default;border-color:var(--border);color:var(--text-dim);">Déjà jouée ✓</button>'
+            : '<button class="btn-join-card">Rejoindre</button>'}
       `;
-      if (!expired) {
+      if (!expired && !alreadyPlayed) {
         card.querySelector('.btn-join-card').addEventListener('click', () => openPseudoModal(g.code, players));
       }
       list.appendChild(card);
@@ -1411,14 +1421,14 @@ function launchGame() {
 // INIT JEU
 // ══════════════════════════════════════════════════════════
 function initGame() {
-  // Durée selon badge (solo uniquement, connecté)
+  // Durée selon badge (connecté, solo ET multi)
   const bestBadge = (typeof currentBestBadge !== 'undefined') ? currentBestBadge : 0;
-  GAME_DURATION = (currentMode === 'solo' && currentUser) ? getGameDuration(bestBadge) : GAME_DURATION_ANON;
+  GAME_DURATION = currentUser ? getGameDuration(bestBadge) : GAME_DURATION_ANON;
   timeLeft = GAME_DURATION;
 
   // Afficher le bonus dans le countdown
   const bonusEl = document.getElementById('countdownAuthBonus');
-  if (currentMode === 'solo' && currentUser) {
+  if (currentUser) {
     const label = getDurationLabel(bestBadge);
     bonusEl.textContent = `⏱ ${label} · mode connecté${bestBadge >= 50 ? ' · badge ' + bestBadge + '%' : ''}`;
     bonusEl.style.display = 'block';
