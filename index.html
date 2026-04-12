@@ -488,9 +488,12 @@
   <h2>Partie créée !</h2>
   <p class="code-hint">Votre partie est visible dans le lobby.<br>Elle expire dans <strong style="color:var(--gold)">72 heures</strong>.</p>
   <div class="game-code-display" id="codeDisplay">——</div>
-  <span class="input-label" style="margin-top:4px;">Votre pseudo</span>
-  <input class="game-input" id="creatorPseudoInput" maxlength="20" placeholder="Votre prénom">
-  <div class="input-error" id="codeError"></div>
+  <div id="creatorPseudoZone">
+    <span class="input-label" style="margin-top:4px;">Votre pseudo</span>
+    <input class="game-input" id="creatorPseudoInput" maxlength="20" placeholder="Votre prénom">
+    <div class="input-error" id="codeError"></div>
+  </div>
+  <div class="input-error" id="codeErrorAuth" style="display:none;"></div>
   <button class="btn-mode" id="btnStartCreator" style="margin-top:4px;">Jouer maintenant</button>
 </div>
 
@@ -1252,13 +1255,38 @@ async function loadLobby() {
 }
 
 let _joinCode = '', _joinPlayers = {};
-function openPseudoModal(code, players) {
+async function openPseudoModal(code, players) {
   _joinCode = code; _joinPlayers = players;
+
+  // Joueur connecté : pas de modal, on vérifie directement et on lance
+  if (currentUser) {
+    const pseudo = currentUser.displayName || currentUser.email || currentUser.uid;
+    if (players[pseudo]?.score !== undefined) {
+      showNotif('Vous avez déjà joué cette partie.');
+      return;
+    }
+    let snap;
+    try { snap = await db.collection('games').doc(code).get(); }
+    catch(e) { showNotif('Erreur réseau.'); return; }
+    if (!snap.exists) { showNotif('Partie introuvable.'); return; }
+    const data = snap.data();
+    if (Date.now() > data.expiresAt) { showNotif('Partie expirée.'); return; }
+    goFullscreen();
+    currentGameCode = code;
+    currentPseudo = pseudo;
+    currentMode = 'multi';
+    board = data.board;
+    launchGame();
+    return;
+  }
+
+  // Joueur anonyme : modal pseudo classique
   document.getElementById('pseudoModalSub').textContent = 'Partie ' + code;
   document.getElementById('pseudoInput').value = '';
   document.getElementById('pseudoError').textContent = '';
   document.getElementById('pseudoModal').style.display = 'flex';
 }
+
 async function confirmJoin() {
   const pseudo = document.getElementById('pseudoInput').value.trim();
   if (!pseudo) { document.getElementById('pseudoError').textContent = 'Entrez un pseudo.'; return; }
@@ -1320,16 +1348,51 @@ async function createGame() {
   currentGameCode = code;
   document.getElementById('codeDisplay').textContent = code;
   document.getElementById('codeError').textContent = '';
-  document.getElementById('creatorPseudoInput').value = '';
+  document.getElementById('codeErrorAuth').textContent = '';
+  document.getElementById('codeErrorAuth').style.display = 'none';
+
+  // Si connecté : pas besoin de pseudo, on masque le champ
+  const pseudoZone = document.getElementById('creatorPseudoZone');
+  if (currentUser) {
+    pseudoZone.style.display = 'none';
+  } else {
+    pseudoZone.style.display = 'flex';
+    pseudoZone.style.flexDirection = 'column';
+    pseudoZone.style.alignItems = 'center';
+    pseudoZone.style.gap = '8px';
+    document.getElementById('creatorPseudoInput').value = '';
+  }
   showCode();
 }
 
 async function startAsCreator() {
-  const pseudo=document.getElementById('creatorPseudoInput').value.trim();
-  if (!pseudo) { document.getElementById('codeError').textContent='Entrez votre pseudo.'; return; }
-  currentPseudo=pseudo; currentMode='multi';
-  const snap=await db.collection('games').doc(currentGameCode).get();
-  board=snap.data().board;
+  let pseudo;
+  if (currentUser) {
+    pseudo = currentUser.displayName || currentUser.email || currentUser.uid;
+  } else {
+    pseudo = document.getElementById('creatorPseudoInput').value.trim();
+    if (!pseudo) { document.getElementById('codeError').textContent = 'Entrez votre pseudo.'; return; }
+  }
+
+  let snap;
+  try { snap = await db.collection('games').doc(currentGameCode).get(); }
+  catch(e) {
+    const errEl = currentUser ? document.getElementById('codeErrorAuth') : document.getElementById('codeError');
+    errEl.textContent = 'Erreur réseau.'; errEl.style.display = 'block'; return;
+  }
+
+  // Vérifier si le joueur connecté a déjà joué cette partie
+  if (currentUser) {
+    const players = snap.data().players || {};
+    if (players[pseudo]?.score !== undefined) {
+      document.getElementById('codeErrorAuth').textContent = 'Vous avez déjà joué cette partie.';
+      document.getElementById('codeErrorAuth').style.display = 'block';
+      return;
+    }
+  }
+
+  currentPseudo = pseudo; currentMode = 'multi';
+  board = snap.data().board;
   launchGame();
 }
 
