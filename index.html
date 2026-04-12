@@ -442,6 +442,7 @@
 <!-- ════ LOADING ════ -->
 <div id="loadingScreen">
   <h2>Mots-Lierre</h2>
+  <div style="font-family:'Playfair Display',serif;font-size:clamp(0.6rem,2.5vw,0.78rem);color:var(--gold);letter-spacing:0.08em;text-align:center;margin-top:-14px;opacity:0.75;">un jeu de Sébastien Dumortier · avril 2026</div>
   <div id="loadingMsg">Chargement du dictionnaire…</div>
   <div class="bar-wrap"><div id="progressBar"></div></div>
   <div id="errorMsg"></div>
@@ -453,7 +454,7 @@
 
   <!-- Zone auth — toujours visible, indépendante du chargement du dictionnaire -->
   <div id="authZone">
-    <div id="authStatus">Non connecté · <span style="color:var(--text-dim)">3 min</span> en solo</div>
+    <div id="authStatus">Non connecté</div>
     <div id="authButtons">
       <div class="btn-auth-row">
         <button class="btn-auth google" id="btnLoginGoogle">
@@ -765,20 +766,20 @@ function updateAuthUI() {
         currentBestBadge = badge;
         const badgeHtml = badge ? `<span class="auth-badge">${badge}%</span>` : '';
         const durLabel = getDurationLabel(badge);
-        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span>${badgeHtml}<br>Mode connecté · <span style="color:var(--gold)">${durLabel}</span>`;
+        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span>${badgeHtml}<br>Connecté · <span style="color:var(--gold)">${durLabel}</span>`;
       }).catch(() => {
         currentBestBadge = 0;
-        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Mode connecté · <span style="color:var(--gold)">3 min</span>`;
+        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Connecté · <span style="color:var(--gold)">3 min</span>`;
       });
     } else {
       currentBestBadge = 0;
-      status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Mode connecté · <span style="color:var(--gold)">3 min</span>`;
+      status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Connecté · <span style="color:var(--gold)">3 min</span>`;
     }
     btnsAnon.style.display = 'none';
     btnsConn.style.display = 'block';
   } else {
     currentBestBadge = 0;
-    status.innerHTML = `Non connecté · <span style="color:var(--text-dim)">3 min</span> en solo`;
+    status.innerHTML = `Non connecté`;
     btnsAnon.style.display = 'block';
     btnsConn.style.display = 'none';
   }
