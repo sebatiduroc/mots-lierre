@@ -80,6 +80,128 @@
   .btn-mode.outline { background: transparent; color: var(--gold); }
   .btn-mode.outline:hover { background: rgba(200,169,110,0.08); }
 
+  /* ══ AUTH ZONE ══ */
+  #authZone {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 8px; width: min(88vw, 280px);
+  }
+  #authStatus {
+    font-size: 0.55rem; letter-spacing: 0.18em; color: var(--text-dim);
+    text-transform: uppercase; text-align: center; line-height: 1.8;
+  }
+  #authStatus .auth-name { color: var(--gold); font-size: 0.65rem; }
+  #authStatus .auth-badge {
+    display: inline-block; background: var(--gold); color: #0d0d0f;
+    border-radius: 4px; padding: 1px 7px; font-size: 0.6rem;
+    font-weight: 500; letter-spacing: 0.1em; margin-left: 6px;
+  }
+  .btn-auth {
+    width: 100%; padding: 11px 16px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    background: var(--surface); color: var(--text-dim);
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    letter-spacing: 0.13em; text-transform: uppercase;
+    cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-auth:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-auth.google { border-color: rgba(200,169,110,0.4); }
+  .btn-auth svg { flex-shrink: 0; }
+  .btn-auth-row { display: flex; gap: 8px; width: 100%; }
+  .btn-auth-row .btn-auth { flex: 1; font-size: 0.62rem; padding: 9px 8px; }
+
+  /* ══ AUTH MODAL ══ */
+  #authModal {
+    position: fixed; inset: 0; background: rgba(13,13,15,.92);
+    display: none; align-items: center; justify-content: center;
+    z-index: 950; backdrop-filter: blur(8px);
+  }
+  .auth-modal-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px 24px; width: min(88vw, 340px);
+    display: flex; flex-direction: column; gap: 14px; align-items: center;
+  }
+  .auth-modal-box h3 {
+    font-family: 'Playfair Display', serif; font-size: 1.3rem;
+    color: var(--gold); letter-spacing: 0.08em; text-align: center;
+  }
+  .auth-sep {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    font-size: 0.52rem; letter-spacing: 0.2em; color: var(--text-dim); text-transform: uppercase;
+  }
+  .auth-sep::before, .auth-sep::after { content:''; flex:1; height:1px; background: var(--border); }
+  .auth-modal-box .game-input { width: 100%; }
+  #authModalError { font-size: 0.6rem; color: var(--red); letter-spacing: 0.1em; text-align: center; min-height: 14px; }
+
+  /* ══ BADGES SCREEN ══ */
+  #badgesScreen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: none; flex-direction: column;
+    align-items: center; z-index: 850;
+    overflow-y: auto; padding: 24px 16px 40px;
+  }
+  #badgesScreen h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.4rem, 5vw, 2rem);
+    color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase;
+    margin: 48px 0 4px;
+  }
+  .badges-sub {
+    font-size: 0.55rem; letter-spacing: 0.2em; color: var(--text-dim);
+    text-transform: uppercase; text-align: center; margin-bottom: 20px;
+  }
+  #badgesList {
+    width: 100%; max-width: 420px; display: flex;
+    flex-direction: column; gap: 6px;
+  }
+  .badge-row {
+    display: flex; align-items: center; padding: 10px 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; gap: 12px; transition: background .15s;
+  }
+  .badge-row.me { border-color: var(--gold); background: rgba(200,169,110,.06); }
+  .badge-medal {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', serif; font-size: 0.78rem;
+    font-weight: 700; flex-shrink: 0;
+    border: 2px solid var(--border);
+  }
+  .badge-medal.b100 { background: #fff8e0; color: #7a5c00; border-color: #e8c98e; }
+  .badge-medal.b90  { background: #e8f0ff; color: #1a3a7a; border-color: #6090e0; }
+  .badge-medal.b80  { background: #f0f8f0; color: #1a5a2a; border-color: #52c97a; }
+  .badge-medal.b70  { background: #fff0e8; color: #7a3010; border-color: #e07840; }
+  .badge-medal.b60  { background: #f8f0ff; color: #4a1a7a; border-color: #a060e0; }
+  .badge-medal.b50  { background: #fff4f4; color: #7a2020; border-color: #e05252; }
+  .badge-medal.b40  { background: #f4f4f4; color: #444; border-color: #999; }
+  .badge-medal.b30  { background: var(--surface2); color: var(--text-dim); border-color: var(--border); }
+  .badge-medal.b20  { background: var(--surface2); color: var(--text-dim); border-color: var(--border); }
+  .badge-medal.b10  { background: var(--surface2); color: var(--text-dim); border-color: var(--border); }
+  .badge-info { flex: 1; min-width: 0; }
+  .badge-name { font-size: 0.8rem; color: var(--cream); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge-name.me-name { color: var(--gold); }
+  .badge-date { font-size: 0.52rem; color: var(--text-dim); letter-spacing: 0.1em; margin-top: 2px; }
+  .badge-pct {
+    font-family: 'Playfair Display', serif; font-size: 1.1rem;
+    color: var(--gold); flex-shrink: 0;
+  }
+  .badge-hint {
+    font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.12em;
+    text-align: center; margin-top: 12px; padding: 0 16px; line-height: 1.8;
+  }
+
+  /* ══ BADGE POPUP (fin de partie) ══ */
+  .badge-earned-popup {
+    background: linear-gradient(135deg, rgba(200,169,110,0.15), rgba(200,169,110,0.05));
+    border: 1.5px solid var(--gold); border-radius: 12px;
+    padding: 14px 20px; text-align: center; width: 100%; max-width: 340px;
+    margin-bottom: 6px;
+  }
+  .badge-earned-title { font-size: 0.55rem; letter-spacing: 0.25em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
+  .badge-earned-value { font-family: 'Playfair Display', serif; font-size: 2rem; color: var(--gold-light); line-height: 1; }
+  .badge-earned-sub { font-size: 0.58rem; color: var(--gold); letter-spacing: 0.12em; margin-top: 3px; }
+  .badge-new { color: var(--green) !important; }
+
   /* ══ ÉCRANS MULTI ══ */
   .flow-screen {
     position: fixed; inset: 0; background: var(--bg);
@@ -123,6 +245,7 @@
     transition: border-color .2s;
   }
   .game-input:focus { border-color: var(--gold); }
+  .game-input.lower { text-transform: none; letter-spacing: 0.05em; font-size: 0.9rem; }
   .input-label {
     font-size: 0.55rem; letter-spacing: 0.2em; color: var(--text-dim);
     text-transform: uppercase; text-align: center;
@@ -235,8 +358,6 @@
     z-index: 200; backdrop-filter: blur(8px); animation: fadeIn .3s ease;
     gap: 0; padding: 0 24px; overflow-y: auto; overflow-x: hidden;
   }
-  /* Spacers flexibles : centrent le contenu quand il y a de la place,
-     disparaissent (min-height:0) quand le contenu deborde => scroll libre */
   .overlay::before, .overlay::after {
     content: ''; display: block; flex: 1 1 32px; min-height: 0;
   }
@@ -280,6 +401,10 @@
   #countdownOverlay .cd-label { font-size: .65rem; letter-spacing: .25em; color: var(--text-dim); text-transform: uppercase; }
   #countdownNum { font-family: 'Playfair Display', serif; font-size: 6rem; font-weight: 900; color: var(--gold); line-height: 1; }
   #countdownAnalysis { font-size: 1rem; letter-spacing: .08em; color: var(--cream); text-align: center; min-height: 1.4em; }
+  #countdownAuthBonus {
+    font-size: 0.6rem; letter-spacing: 0.18em; color: var(--gold);
+    text-transform: uppercase; opacity: 0.8;
+  }
   @keyframes cdPop { 0%{transform:scale(1.6);opacity:0} 40%{transform:scale(.9);opacity:1} 100%{transform:scale(1);opacity:1} }
 
   /* ── Lobby cards ── */
@@ -299,10 +424,7 @@
   .btn-join-card { width: 100%; padding: 8px; border: 1px solid var(--gold); border-radius: 7px; background: transparent; color: var(--gold); font-family: 'DM Mono', monospace; font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; transition: all .15s; }
   .btn-join-card:hover { background: rgba(200,169,110,.1); }
 
-  /* ── Notification ── */
-  /* ── Lobby expired ── */
   .gc-expired { opacity: .55; }
-  .gc-expired-label { font-size: .55rem; color: var(--text-dim); letter-spacing: .15em; text-transform: uppercase; text-align: center; padding: 4px 0; }
 
   .notif { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 20px; font-size: .75rem; color: var(--text-dim); letter-spacing: .1em; z-index: 600; animation: notifAnim 1.4s ease-out forwards; pointer-events: none; }
   @keyframes notifAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(.9)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-58%) scale(.95)} }
@@ -319,6 +441,26 @@
   <div class="mode-btns" id="modeBtns" style="display:none;">
     <button class="btn-mode" id="btnSolo">Jouer seul</button>
     <button class="btn-mode outline" id="btnMulti">Jouer à plusieurs</button>
+    <button class="btn-mode outline" id="btnBadges">🏅 Tableau des badges</button>
+
+    <!-- Zone auth -->
+    <div id="authZone">
+      <div id="authStatus">Non connecté · <span style="color:var(--text-dim)">3 min</span> en solo</div>
+      <div id="authButtons">
+        <div class="btn-auth-row">
+          <button class="btn-auth google" id="btnLoginGoogle">
+            <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.9 2.3 30.3 0 24 0 14.6 0 6.5 5.4 2.5 13.3l7.8 6.1C12.2 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.9 7.2l7.7 6c4.5-4.2 7-10.3 7-17.2z"/><path fill="#FBBC05" d="M10.3 28.6A14.5 14.5 0 019.5 24c0-1.6.3-3.2.8-4.6L2.5 13.3A24 24 0 000 24c0 3.8.9 7.4 2.5 10.6l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.1 1.4-4.8 2.3-8.2 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.8 6C6.5 42.6 14.6 48 24 48z"/></svg>
+            Google
+          </button>
+          <button class="btn-auth" id="btnLoginEmail">✉ Email</button>
+        </div>
+      </div>
+      <div id="authButtonsConnected" style="display:none; width:100%;">
+        <div class="btn-auth-row">
+          <button class="btn-auth" id="btnLogout">Déconnexion</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -357,6 +499,38 @@
       <button id="btnPseudoConfirm" style="flex:2;padding:10px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold);color:#0d0d0f;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-weight:500;">Jouer</button>
     </div>
   </div>
+</div>
+
+<!-- ════ AUTH MODAL ════ -->
+<div id="authModal">
+  <div class="auth-modal-box">
+    <h3>Se connecter</h3>
+    <p style="font-size:.55rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;text-align:center;line-height:1.8;">
+      Connectez-vous pour participer<br>au tableau des badges et jouer 5 min
+    </p>
+    <button class="btn-auth google" id="btnModalGoogle" style="width:100%;">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.9 2.3 30.3 0 24 0 14.6 0 6.5 5.4 2.5 13.3l7.8 6.1C12.2 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.9 7.2l7.7 6c4.5-4.2 7-10.3 7-17.2z"/><path fill="#FBBC05" d="M10.3 28.6A14.5 14.5 0 019.5 24c0-1.6.3-3.2.8-4.6L2.5 13.3A24 24 0 000 24c0 3.8.9 7.4 2.5 10.6l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.1 1.4-4.8 2.3-8.2 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.8 6C6.5 42.6 14.6 48 24 48z"/></svg>
+      Continuer avec Google
+    </button>
+    <div class="auth-sep">ou</div>
+    <input class="game-input lower" id="authEmail" type="email" placeholder="email@exemple.com" style="text-transform:none;letter-spacing:.05em;">
+    <input class="game-input lower" id="authPassword" type="password" placeholder="Mot de passe" style="text-transform:none;letter-spacing:.05em;">
+    <div id="authModalError"></div>
+    <button class="btn-mode" id="btnModalEmailLogin" style="width:100%;margin-top:0;">Connexion</button>
+    <button class="btn-mode outline" id="btnModalEmailRegister" style="width:100%;margin-top:-4px;">Créer un compte</button>
+    <button class="btn-back" style="position:static;margin-top:4px;" id="btnAuthModalClose">Annuler</button>
+  </div>
+</div>
+
+<!-- ════ BADGES SCREEN ════ -->
+<div id="badgesScreen">
+  <button class="btn-back" id="btnBackFromBadges">← Retour</button>
+  <h2>Badges</h2>
+  <p class="badges-sub">Classement des joueurs connectés</p>
+  <div id="badgesList">
+    <div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>
+  </div>
+  <p class="badge-hint" id="badgesHint"></p>
 </div>
 
 <!-- ════ JEU ════ -->
@@ -398,15 +572,16 @@
   <div class="cd-label">Préparez-vous !</div>
   <div id="countdownNum">3</div>
   <div id="countdownAnalysis">Analyse en cours…</div>
+  <div id="countdownAuthBonus" style="display:none;">⏱ +2 min · mode connecté</div>
 </div>
-
 
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script>
 // ══ Firebase init ══
-let db = null;
+let db = null, auth = null;
 try {
   const app = firebase.initializeApp({
     apiKey: "AIzaSyCYkcBWDpBzRDaGlaVB5XiVDBWcxsimHMo",
@@ -416,7 +591,8 @@ try {
     messagingSenderId: "523024246479",
     appId: "1:523024246479:web:bc1af588e9e3fff18df9ba"
   });
-  db = firebase.firestore();
+  db   = firebase.firestore();
+  auth = firebase.auth();
 } catch(e) {
   console.error('Firebase init failed:', e);
 }
@@ -424,16 +600,20 @@ try {
 // ══════════════════════════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════════════════════════
-const GAME_DURATION  = 180;
+const GAME_DURATION_ANON = 180;   // 3 min
+const GAME_DURATION_AUTH = 300;   // 5 min
 const N              = 4;
 const MULTI_TTL_MS   = 72 * 60 * 60 * 1000;
 const WEEK_MS        = 7 * 24 * 60 * 60 * 1000;
+
+// Paliers de badges
+const BADGE_THRESHOLDS = [10,20,30,40,50,60,65,70,75,80,85,90,91,92,93,94,95,96,97,98,99,100];
 
 const FRENCH_DICE = [
   'AELMNU','AEHLOS','AINOTW','ABORTU','EILTUZ','AEIPSV','AEINRT',
   'EIORTY','ADEILS','ACEINO','ACELRS','EJLRST','EIPRSU','AEKOQS',
   'ACFNTX','CEGILR'
-]; // Rang #1 — optimisé ODS6, 26 lettres couvertes
+];
 
 const CODE_WORDS = [
   'AIGLE','ALOES','ARBRE','BISON','BUTOR','CALAO','CARPE','CARDE',
@@ -493,7 +673,6 @@ async function loadDictionary() {
   document.querySelector('.bar-wrap').style.display = 'none';
   document.getElementById('modeBtns').style.display = 'flex';
   purgeOldGames();
-  // Construction du trie en tâche de fond
   buildTrieInWorker(dictionary);
 }
 
@@ -521,14 +700,222 @@ function showError(msg) {
 }
 
 // ══════════════════════════════════════════════════════════
+// AUTH — état courant
+// ══════════════════════════════════════════════════════════
+let currentUser = null;
+
+if (auth) {
+  auth.onAuthStateChanged(user => {
+    currentUser = user;
+    updateAuthUI();
+  });
+}
+
+function updateAuthUI() {
+  const status   = document.getElementById('authStatus');
+  const btnsAnon = document.getElementById('authButtons');
+  const btnsConn = document.getElementById('authButtonsConnected');
+  if (currentUser) {
+    const name = currentUser.displayName || currentUser.email || 'Connecté';
+    // Récupère le badge actuel pour l'afficher
+    if (db) {
+      db.collection('badges').doc(currentUser.uid).get().then(snap => {
+        const badge = snap.exists ? snap.data().bestBadge : null;
+        const badgeHtml = badge ? `<span class="auth-badge">${badge}%</span>` : '';
+        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span>${badgeHtml}<br>Mode connecté · <span style="color:var(--gold)">5 min</span>`;
+      }).catch(() => {
+        status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Mode connecté · <span style="color:var(--gold)">5 min</span>`;
+      });
+    } else {
+      status.innerHTML = `<span class="auth-name">${escHtml(name)}</span><br>Mode connecté · <span style="color:var(--gold)">5 min</span>`;
+    }
+    btnsAnon.style.display = 'none';
+    btnsConn.style.display = 'block';
+  } else {
+    status.innerHTML = `Non connecté · <span style="color:var(--text-dim)">3 min</span> en solo`;
+    btnsAnon.style.display = 'block';
+    btnsConn.style.display = 'none';
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Connexion Google ──
+async function loginGoogle() {
+  if (!auth) return;
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);
+    closeAuthModal();
+  } catch(e) {
+    showAuthError(e.message);
+  }
+}
+
+// ── Connexion Email ──
+async function loginEmail() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass  = document.getElementById('authPassword').value;
+  if (!email || !pass) { showAuthError('Remplissez email et mot de passe.'); return; }
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    closeAuthModal();
+  } catch(e) {
+    showAuthError(fmtAuthError(e.code));
+  }
+}
+
+// ── Création compte Email ──
+async function registerEmail() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass  = document.getElementById('authPassword').value;
+  if (!email || !pass) { showAuthError('Remplissez email et mot de passe.'); return; }
+  if (pass.length < 6) { showAuthError('Mot de passe : 6 caractères minimum.'); return; }
+  try {
+    await auth.createUserWithEmailAndPassword(email, pass);
+    closeAuthModal();
+  } catch(e) {
+    showAuthError(fmtAuthError(e.code));
+  }
+}
+
+function fmtAuthError(code) {
+  const map = {
+    'auth/user-not-found'      : 'Compte introuvable.',
+    'auth/wrong-password'      : 'Mot de passe incorrect.',
+    'auth/email-already-in-use': 'Email déjà utilisé.',
+    'auth/invalid-email'       : 'Email invalide.',
+    'auth/weak-password'       : 'Mot de passe trop faible.',
+    'auth/too-many-requests'   : 'Trop de tentatives. Réessayez plus tard.',
+  };
+  return map[code] || 'Erreur de connexion.';
+}
+
+async function logout() {
+  if (auth) await auth.signOut();
+}
+
+function showAuthError(msg) { document.getElementById('authModalError').textContent = msg; }
+
+function openAuthModal() {
+  document.getElementById('authModalError').textContent = '';
+  document.getElementById('authEmail').value = '';
+  document.getElementById('authPassword').value = '';
+  document.getElementById('authModal').style.display = 'flex';
+}
+function closeAuthModal() {
+  document.getElementById('authModal').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════════
+// BADGES — calcul et sauvegarde
+// ══════════════════════════════════════════════════════════
+function getBadgeEarned(wordsFound, totalPossible) {
+  if (!totalPossible || !wordsFound) return null;
+  const pct = (wordsFound / totalPossible) * 100;
+  let badge = null;
+  for (const t of BADGE_THRESHOLDS) {
+    if (pct >= t) badge = t;
+  }
+  return badge;
+}
+
+function getBadgeMedalClass(badge) {
+  if (badge >= 90) return 'b100';
+  if (badge >= 80) return 'b90';
+  if (badge >= 70) return 'b80';
+  if (badge >= 60) return 'b70';
+  if (badge >= 50) return 'b60';
+  if (badge >= 40) return 'b50';
+  if (badge >= 30) return 'b40';
+  if (badge >= 20) return 'b30';
+  if (badge >= 10) return 'b20';
+  return 'b10';
+}
+
+// Retourne { earned, isNew, previous }
+async function updateBadge(earned) {
+  if (!currentUser || !db || earned === null) return { earned, isNew: false, previous: null };
+  const ref = db.collection('badges').doc(currentUser.uid);
+  try {
+    const snap = await ref.get();
+    const previous = snap.exists ? (snap.data().bestBadge || 0) : 0;
+    const isNew = earned > previous;
+    if (isNew) {
+      await ref.set({
+        displayName: currentUser.displayName || currentUser.email || 'Joueur',
+        email: currentUser.email || '',
+        bestBadge: earned,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      updateAuthUI(); // rafraîchit le badge dans la zone auth
+    }
+    return { earned, isNew, previous };
+  } catch(e) {
+    console.warn('updateBadge:', e.message);
+    return { earned, isNew: false, previous: null };
+  }
+}
+
+// ── Affichage tableau des badges ──
+async function showBadgesScreen() {
+  hide('loadingScreen','multiScreen','codeScreen','gameUI');
+  show('badgesScreen');
+  const list = document.getElementById('badgesList');
+  list.innerHTML = '<div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>';
+
+  if (!db) {
+    list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;">Firebase non disponible.</div>';
+    return;
+  }
+
+  try {
+    const snap = await db.collection('badges').orderBy('bestBadge','desc').limit(100).get();
+    if (snap.empty) {
+      list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.1em;">Aucun badge encore.<br>Connectez-vous et jouez !</div>';
+      return;
+    }
+    list.innerHTML = '';
+    snap.forEach((doc, idx) => {
+      const d = doc.data();
+      const isMe = currentUser && doc.id === currentUser.uid;
+      const medal = getBadgeMedalClass(d.bestBadge);
+      const updatedAt = d.updatedAt ? new Date(d.updatedAt.toMillis()).toLocaleDateString('fr-FR') : '';
+      const row = document.createElement('div');
+      row.className = 'badge-row' + (isMe ? ' me' : '');
+      row.innerHTML = `
+        <div class="badge-medal ${medal}">${d.bestBadge}%</div>
+        <div class="badge-info">
+          <div class="badge-name${isMe?' me-name':''}">${escHtml(d.displayName || 'Joueur')}${isMe?' <span style="font-size:.58rem;color:var(--text-dim)">(moi)</span>':''}</div>
+          ${updatedAt ? `<div class="badge-date">${updatedAt}</div>` : ''}
+        </div>
+        <div class="badge-pct">${d.bestBadge}%</div>`;
+      list.appendChild(row);
+    });
+
+    const hint = document.getElementById('badgesHint');
+    if (!currentUser) {
+      hint.textContent = 'Connectez-vous pour apparaître dans ce classement et jouer 5 minutes.';
+    } else {
+      hint.textContent = '';
+    }
+  } catch(e) {
+    list.innerHTML = `<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;">Erreur de chargement.<br><small>${e.message}</small></div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 // ÉTAT
 // ══════════════════════════════════════════════════════════
 let board=[], selectedPath=[], foundWords=new Set();
-let score=0, timeLeft=GAME_DURATION, gameActive=false;
+let score=0, timeLeft=GAME_DURATION_ANON, gameActive=false;
 let timerInterval=null, isDragging=false, gestureStart=null;
 let currentMode='solo', currentGameCode='', currentPseudo='';
 let firestoreUnsub=null;
-let boardAnalysis = null; // { wordCount, maxScore } — rempli par le worker
+let boardAnalysis = null;
+let GAME_DURATION = GAME_DURATION_ANON; // sera mis à jour selon auth
 
 // ══════════════════════════════════════════════════════════
 // TRIE — construit en tâche de fond après chargement du dico
@@ -604,7 +991,6 @@ function buildTrieInWorker(words) {
   trieWorker.onmessage = (e) => {
     if (e.data.type === 'ready') {
       trieRoot = e.data.trie;
-      // Si une grille est déjà en attente d'analyse, lancer maintenant
       if (board.length === 16) analyzeCurrentBoard();
     } else if (e.data.type === 'analysis') {
       boardAnalysis = { wordCount: e.data.wordCount, maxScore: e.data.maxScore };
@@ -625,6 +1011,7 @@ function showBoardAnalysis() {
   if (!el || !boardAnalysis) return;
   el.textContent = `${boardAnalysis.wordCount} mot${boardAnalysis.wordCount!==1?'s':''} possibles · max ${boardAnalysis.maxScore} pt${boardAnalysis.maxScore!==1?'s':''}`;
 }
+
 // ══════════════════════════════════════════════════════════
 function seededRng(seed) {
   let s=0;
@@ -652,7 +1039,7 @@ async function generateCode() {
       if (!snap.exists) return code;
       const d = snap.data();
       const ts = d.createdAt ? d.createdAt.toMillis() : (d.createdAtMs || 0);
-      if (Date.now() - ts > WEEK_MS) return code; // recyclable
+      if (Date.now() - ts > WEEK_MS) return code;
     } catch(e) { return code; }
   }
   const w = CODE_WORDS[Math.floor(Math.random() * CODE_WORDS.length)];
@@ -679,7 +1066,7 @@ function fmtCountdown(ms) {
 function showHome() {
   if (_lobbyTimerInterval) { clearInterval(_lobbyTimerInterval); _lobbyTimerInterval = null; }
   document.getElementById('pseudoModal').style.display = 'none';
-  hide('multiScreen','codeScreen','gameUI');
+  hide('multiScreen','codeScreen','gameUI','badgesScreen');
   show('loadingScreen');
   document.getElementById('modeBtns').style.display='flex';
   document.getElementById('loadingMsg').style.display='none';
@@ -687,7 +1074,7 @@ function showHome() {
 }
 function showMulti() {
   if (_lobbyTimerInterval) { clearInterval(_lobbyTimerInterval); _lobbyTimerInterval = null; }
-  hide('loadingScreen','codeScreen','gameUI');
+  hide('loadingScreen','codeScreen','gameUI','badgesScreen');
   show('multiScreen');
   loadLobby();
 }
@@ -768,7 +1155,6 @@ function openPseudoModal(code, players) {
   document.getElementById('pseudoInput').value = '';
   document.getElementById('pseudoError').textContent = '';
   document.getElementById('pseudoModal').style.display = 'flex';
-  // focus déclenche le clavier mobile — on ne force pas
 }
 async function confirmJoin() {
   const pseudo = document.getElementById('pseudoInput').value.trim();
@@ -805,7 +1191,7 @@ function startSolo() {
   document.getElementById('pseudoModal').style.display = 'none';
   goFullscreen(); currentMode='solo'; currentGameCode=''; currentPseudo='';
   document.getElementById('multiInfo').style.display='none';
-  hide('loadingScreen');
+  hide('loadingScreen','badgesScreen');
   show('gameUI');
   board=randomBoard();
   initGame();
@@ -850,7 +1236,7 @@ async function startAsCreator() {
 function launchGame() {
   document.getElementById('multiInfo').textContent=`Partie ${currentGameCode} · ${currentPseudo}`;
   document.getElementById('multiInfo').style.display='block';
-  hide('codeScreen','loadingScreen','multiScreen');
+  hide('codeScreen','loadingScreen','multiScreen','badgesScreen');
   show('gameUI');
   initGame();
 }
@@ -859,7 +1245,22 @@ function launchGame() {
 // INIT JEU
 // ══════════════════════════════════════════════════════════
 function initGame() {
-  selectedPath=[]; foundWords=new Set(); score=0; timeLeft=GAME_DURATION;
+  // Durée selon auth (solo uniquement)
+  GAME_DURATION = (currentMode === 'solo' && currentUser) ? GAME_DURATION_AUTH : GAME_DURATION_ANON;
+  timeLeft = GAME_DURATION;
+
+  // Afficher le bonus auth dans le countdown
+  const bonusEl = document.getElementById('countdownAuthBonus');
+  if (currentMode === 'solo' && currentUser) {
+    bonusEl.style.display = 'block';
+  } else {
+    bonusEl.style.display = 'none';
+  }
+
+  const timerInitLabel = `${Math.floor(GAME_DURATION/60)}:${(GAME_DURATION%60).toString().padStart(2,'0')}`;
+  document.getElementById('timer').textContent = timerInitLabel;
+
+  selectedPath=[]; foundWords=new Set(); score=0;
   boardAnalysis=null;
   const el=document.getElementById('countdownAnalysis');
   if(el){ el.textContent='Analyse en cours…'; }
@@ -1009,20 +1410,63 @@ function startTimer() {
 
 async function onGameOver() {
   const words=[...foundWords].sort((a,b)=>b.length-a.length);
+
+  // Badge : disponible en solo ET multi si connecté
+  let badgeResult = null;
+  if (currentUser && boardAnalysis && boardAnalysis.wordCount > 0) {
+    const earned = getBadgeEarned(foundWords.size, boardAnalysis.wordCount);
+    if (earned !== null) {
+      badgeResult = await updateBadge(earned);
+    }
+  }
+
   if (currentMode==='multi') {
     await saveScore(currentGameCode, currentPseudo, score, words);
-    showMultiOver(words);
+    await showMultiOver(words, badgeResult);
   } else {
-    showSoloOver(words);
+    showSoloOver(words, badgeResult);
   }
 }
 
-function showSoloOver(words) {
+function showSoloOver(words, badgeResult) {
   const ov=document.createElement('div'); ov.className='overlay';
+
+  // Bloc badge
+  let badgeHtml = '';
+  if (badgeResult && badgeResult.earned !== null) {
+    const pct = boardAnalysis ? Math.round((foundWords.size / boardAnalysis.wordCount) * 100) : 0;
+    if (badgeResult.isNew) {
+      badgeHtml = `
+        <div class="badge-earned-popup">
+          <div class="badge-earned-title">🏅 Nouveau badge !</div>
+          <div class="badge-earned-value badge-new">${badgeResult.earned}%</div>
+          <div class="badge-earned-sub badge-new">Vous avez trouvé ${pct}% des mots possibles</div>
+        </div>`;
+    } else {
+      badgeHtml = `
+        <div class="badge-earned-popup">
+          <div class="badge-earned-title">Badge obtenu</div>
+          <div class="badge-earned-value">${badgeResult.earned}%</div>
+          <div class="badge-earned-sub">${pct}% des mots · Record : ${badgeResult.earned}%</div>
+        </div>`;
+    }
+  } else if (currentUser && boardAnalysis && boardAnalysis.wordCount > 0) {
+    const pct = Math.round((foundWords.size / boardAnalysis.wordCount) * 100);
+    if (pct < 10) {
+      badgeHtml = `
+        <div class="badge-earned-popup" style="border-color:var(--border);">
+          <div class="badge-earned-title">Progression</div>
+          <div class="badge-earned-value" style="font-size:1.4rem;color:var(--text-dim);">${pct}%</div>
+          <div class="badge-earned-sub" style="color:var(--text-dim);">Il faut 10% pour le 1er badge</div>
+        </div>`;
+    }
+  }
+
   ov.innerHTML=`
     <h2>Fin de partie</h2>
     <div class="final-score">${score}</div>
     <div class="final-sub">point${score!==1?'s':''} — ${foundWords.size} mot${foundWords.size!==1?'s':''}</div>
+    ${badgeHtml}
     <div class="found-words">${words.map(w=>`<div class="word-chip">${w}&nbsp;(+${calcScore(w)})</div>`).join('')}</div>
     <button class="btn-replay" id="btnMenuSolo">Menu</button>`;
   document.body.appendChild(ov);
@@ -1038,14 +1482,36 @@ function computeUniqueWords(players) {
   return new Set(Object.entries(wordCount).filter(([,n])=>n===1).map(([w])=>w));
 }
 
-async function showMultiOver(words) {
+async function showMultiOver(words, badgeResult) {
   const snap=await db.collection('games').doc(currentGameCode).get();
   const players=snap.exists?snap.data().players||{}:{};
+
+  let badgeHtml = '';
+  if (badgeResult && badgeResult.earned !== null) {
+    const pct = boardAnalysis ? Math.round((foundWords.size / boardAnalysis.wordCount) * 100) : 0;
+    if (badgeResult.isNew) {
+      badgeHtml = `
+        <div class="badge-earned-popup">
+          <div class="badge-earned-title">🏅 Nouveau badge !</div>
+          <div class="badge-earned-value badge-new">${badgeResult.earned}%</div>
+          <div class="badge-earned-sub badge-new">Vous avez trouvé ${pct}% des mots possibles</div>
+        </div>`;
+    } else {
+      badgeHtml = `
+        <div class="badge-earned-popup">
+          <div class="badge-earned-title">Badge obtenu</div>
+          <div class="badge-earned-value">${badgeResult.earned}%</div>
+          <div class="badge-earned-sub">${pct}% des mots · Record : ${badgeResult.earned}%</div>
+        </div>`;
+    }
+  }
+
   const ov=document.createElement('div'); ov.className='overlay';
   ov.innerHTML=`
     <h2>Fin de partie</h2>
     <div class="final-score">${score}</div>
     <div class="final-sub">point${score!==1?'s':''} — ${foundWords.size} mot${foundWords.size!==1?'s':''}</div>
+    ${badgeHtml}
     <div class="leaderboard">
       <div class="leaderboard-title">Classement · ${currentGameCode}</div>
       <div id="lbRows"></div>
@@ -1060,7 +1526,6 @@ async function showMultiOver(words) {
   const lbContainer = ov.querySelector('#lbRows');
   renderLbRows(players, lbContainer);
 
-  // Ecoute temps reel
   if (firestoreUnsub) firestoreUnsub();
   firestoreUnsub=db.collection('games').doc(currentGameCode).onSnapshot(snap=>{
     if (!lbContainer.isConnected) return;
@@ -1088,7 +1553,6 @@ function renderLbRows(players, container) {
   const winner = sorted.length ? sorted[0][0] : null;
   const uniqueWords = computeUniqueWords(players);
 
-  // Memoriser les lignes ouvertes avant re-rendu
   const openNames = new Set();
   container.querySelectorAll('.lb-words.open').forEach(el => openNames.add(el.dataset.player));
 
@@ -1141,7 +1605,8 @@ async function saveScore(code, pseudo, sc, words) {
 // ══════════════════════════════════════════════════════════
 function resetUI() {
   document.getElementById('score').textContent='0';
-  document.getElementById('timer').textContent='3:00';
+  const dur = GAME_DURATION;
+  document.getElementById('timer').textContent=`${Math.floor(dur/60)}:${(dur%60).toString().padStart(2,'0')}`;
   document.getElementById('wordCount').textContent='0';
   document.getElementById('wordsCountLabel').textContent='0 mot';
   document.getElementById('wordsList').innerHTML='';
@@ -1157,7 +1622,7 @@ function goHome() {
   clearInterval(timerInterval); gameActive=false;
   if (firestoreUnsub) { firestoreUnsub(); firestoreUnsub=null; }
   document.querySelector('.overlay')?.remove();
-  hide('gameUI');
+  hide('gameUI','badgesScreen');
   showHome();
 }
 
@@ -1185,6 +1650,7 @@ function attachGridEvents() {
 // ══════════════════════════════════════════════════════════
 document.getElementById('btnSolo').addEventListener('click', startSolo);
 document.getElementById('btnMulti').addEventListener('click', showMulti);
+document.getElementById('btnBadges').addEventListener('click', showBadgesScreen);
 document.getElementById('btnBackToHome').addEventListener('click', showHome);
 document.getElementById('btnCreate').addEventListener('click', createGame);
 document.getElementById('btnBackToMulti2').addEventListener('click', showMulti);
@@ -1193,9 +1659,20 @@ document.getElementById('btnMenu').addEventListener('click', goHome);
 document.getElementById('btnPseudoCancel').addEventListener('click', ()=>{ document.getElementById('pseudoModal').style.display='none'; });
 document.getElementById('btnPseudoConfirm').addEventListener('click', confirmJoin);
 document.getElementById('pseudoInput').addEventListener('keydown', e=>{ if(e.key==='Enter') confirmJoin(); });
+document.getElementById('btnBackFromBadges').addEventListener('click', showHome);
+
+// Auth buttons
+document.getElementById('btnLoginGoogle').addEventListener('click', loginGoogle);
+document.getElementById('btnLoginEmail').addEventListener('click', openAuthModal);
+document.getElementById('btnLogout').addEventListener('click', logout);
+document.getElementById('btnModalGoogle').addEventListener('click', loginGoogle);
+document.getElementById('btnModalEmailLogin').addEventListener('click', loginEmail);
+document.getElementById('btnModalEmailRegister').addEventListener('click', registerEmail);
+document.getElementById('btnAuthModalClose').addEventListener('click', closeAuthModal);
+document.getElementById('authPassword').addEventListener('keydown', e=>{ if(e.key==='Enter') loginEmail(); });
 
 // ══════════════════════════════════════════════════════════
-// BOOT — purge les anciens Service Workers puis charge
+// BOOT
 // ══════════════════════════════════════════════════════════
 attachGridEvents();
 if ('serviceWorker' in navigator) {
