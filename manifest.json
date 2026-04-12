@@ -1,7 +1,7 @@
 {
-  "name": "Boggle Français",
-  "short_name": "Boggle",
-  "description": "Boggle en français — dictionnaire ODS6, solo et multijoueur",
+  "name": "Mots-Lierre",
+  "short_name": "Mots-Lierre",
+  "description": "Jeu de mots en français — dictionnaire ODS, solo et multijoueur",
   "lang": "fr",
   "start_url": "./index.html",
   "scope": "./",
