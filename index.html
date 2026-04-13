@@ -1301,6 +1301,7 @@ function buildTrieInWorker(words) {
     if (e.data.type === 'ready') {
       trieRoot = true; // signale que le worker est prêt, le trie est dans le worker
       if (board.length === 16) analyzeCurrentBoard();
+      alert('worker ready'); // ← temporaire
       // Alimente la banque en arrière-plan, sans urgence
       setTimeout(() => refillBankIfNeeded(), 3000);
     } else if (e.data.type === 'analysis') {
