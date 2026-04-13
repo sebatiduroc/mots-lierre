@@ -1640,21 +1640,20 @@ function showSoloOver(words, badgeResult) {
           <div class="badge-earned-sub badge-new">Vous avez trouvé ${pct}% des mots possibles</div>
         </div>`;
     } else {
+      // Badge non amélioré : affichage discret sans popup doré
+      const totalWords = boardAnalysis ? boardAnalysis.wordCount : 0;
       badgeHtml = `
-        <div class="badge-earned-popup">
-          <div class="badge-earned-title">Badge obtenu</div>
-          <div class="badge-earned-value">${badgeResult.earned}%</div>
-          <div class="badge-earned-sub">${pct}% des mots · Record : ${badgeResult.earned}%</div>
+        <div style="font-size:0.6rem;letter-spacing:0.15em;color:var(--text-dim);text-transform:uppercase;text-align:center;line-height:1.9;padding:4px 0;">
+          Niveau ${pct}% · ${foundWords.size} mot${foundWords.size!==1?'s':''} trouvé${foundWords.size!==1?'s':''} sur ${totalWords} possible${totalWords!==1?'s':''}
         </div>`;
     }
   } else if (currentUser && boardAnalysis && boardAnalysis.wordCount > 0) {
     const pct = Math.round((foundWords.size / boardAnalysis.wordCount) * 100);
+    const totalWords = boardAnalysis.wordCount;
     if (pct < 10) {
       badgeHtml = `
-        <div class="badge-earned-popup" style="border-color:var(--border);">
-          <div class="badge-earned-title">Progression</div>
-          <div class="badge-earned-value" style="font-size:1.4rem;color:var(--text-dim);">${pct}%</div>
-          <div class="badge-earned-sub" style="color:var(--text-dim);">Il faut 10% pour le 1er badge</div>
+        <div style="font-size:0.6rem;letter-spacing:0.15em;color:var(--text-dim);text-transform:uppercase;text-align:center;line-height:1.9;padding:4px 0;">
+          Niveau ${pct}% · ${foundWords.size} mot${foundWords.size!==1?'s':''} trouvé${foundWords.size!==1?'s':''} sur ${totalWords} possible${totalWords!==1?'s':''} · Il faut 10% pour le 1er badge
         </div>`;
     }
   }
@@ -1694,11 +1693,11 @@ async function showMultiOver(words, badgeResult) {
           <div class="badge-earned-sub badge-new">Vous avez trouvé ${pct}% des mots possibles</div>
         </div>`;
     } else {
+      // Badge non amélioré : affichage discret sans popup doré
+      const totalWords = boardAnalysis ? boardAnalysis.wordCount : 0;
       badgeHtml = `
-        <div class="badge-earned-popup">
-          <div class="badge-earned-title">Badge obtenu</div>
-          <div class="badge-earned-value">${badgeResult.earned}%</div>
-          <div class="badge-earned-sub">${pct}% des mots · Record : ${badgeResult.earned}%</div>
+        <div style="font-size:0.6rem;letter-spacing:0.15em;color:var(--text-dim);text-transform:uppercase;text-align:center;line-height:1.9;padding:4px 0;">
+          Niveau ${pct}% · ${foundWords.size} mot${foundWords.size!==1?'s':''} trouvé${foundWords.size!==1?'s':''} sur ${totalWords} possible${totalWords!==1?'s':''}
         </div>`;
     }
   }
