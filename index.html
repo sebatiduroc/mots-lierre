@@ -1374,6 +1374,7 @@ async function refillBankIfNeeded() {
     const snap = await db.collection('boards').count().get();
     const count = snap.data().count;
     console.log(`[bank] Stock actuel : ${count} grilles`);
+    alert(`[bank] Stock : ${count} grilles`);
     if (count >= BANK_REFILL_THRESHOLD) return;
     const needed = BANK_TARGET - count;
     const batches = Math.ceil(needed / BANK_BATCH_SIZE);
