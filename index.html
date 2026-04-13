@@ -737,6 +737,7 @@ async function loadDictionary() {
   document.querySelector('.bar-wrap').style.display = 'none';
   document.getElementById('modeBtns').style.display = 'flex';
   purgeOldGames();
+  alert('appel buildTrieInWorker');
   buildTrieInWorker(dictionary);
 }
 
@@ -1299,7 +1300,8 @@ function buildTrieInWorker(words) {
   trieWorker = new Worker(URL.createObjectURL(blob));
   trieWorker.onmessage = (e) => {
     if (e.data.type === 'ready') {
-      trieRoot = true; // signale que le worker est prêt, le trie est dans le worker
+      trieRoot = true;
+      alert('worker ready OK');
       if (board.length === 16) analyzeCurrentBoard();
       // Alimente la banque en arrière-plan, sans urgence
       setTimeout(() => refillBankIfNeeded(), 3000);
