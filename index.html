@@ -699,6 +699,7 @@ const dictionary = new Set();
 const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
 
 async function loadDictionary() {
+  alert('loadDictionary démarré');  // ← temporaire
   setMsg('Chargement du dictionnaire…'); setBar(5);
   let text;
   try {
