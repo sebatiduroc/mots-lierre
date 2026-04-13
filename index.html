@@ -1371,17 +1371,16 @@ async function pickBoardFromBank() {
 async function refillBankIfNeeded() {
   if (!db || !trieRoot || !trieWorker) return;
   try {
-    const snap = await db.collection('boards').count().get();
-    const count = snap.data().count;
+    const snap = await db.collection('boards').limit(BANK_TARGET + 1).get();
+    const count = snap.size;
     console.log(`[bank] Stock actuel : ${count} grilles`);
     if (count >= BANK_REFILL_THRESHOLD) return;
     const needed = BANK_TARGET - count;
     const batches = Math.ceil(needed / BANK_BATCH_SIZE);
     console.log(`[bank] Alimentation : ${needed} grilles à générer (${batches} vague(s))`);
 
-    // Récupère les codes existants pour éviter les doublons
-    const existingSnap = await db.collection('boards').select().get();
-    const usedCodes = existingSnap.docs.map(d => d.id);
+    // Récupère les codes existants depuis le snap déjà chargé
+    const usedCodes = snap.docs.map(d => d.id);
 
     for (let b = 0; b < batches; b++) {
       const results = await new Promise(resolve => {
