@@ -667,8 +667,11 @@ const WEEK_MS        = 7 * 24 * 60 * 60 * 1000;
 // Paliers de badges
 const BADGE_THRESHOLDS = [10,20,30,40,50,60,65,70,75,80,85,90,91,92,93,94,95,96,97,98,99,100];
 
-const BOARD_MIN_WORDS = 50;  // Nombre minimum de mots trouvables
-const BOARD_MAX_WORDS = 100; // Nombre maximum de mots trouvables
+const BOARD_MIN_WORDS  = 50;  // Nombre minimum de mots trouvables
+const BOARD_MAX_WORDS  = 100; // Nombre maximum de mots trouvables
+const BANK_TARGET      = 50;  // Stock visé dans la banque Firebase
+const BANK_REFILL_THRESHOLD = 40; // On alimente si le stock descend sous ce seuil
+const BANK_BATCH_SIZE  = 8;   // Grilles générées par session cliente (par vague)
 
 const FRENCH_DICE = [
   'AELMNU','AEHLOS','AINOTW','ABORTU','EILTUZ','AEIPSV','AEINRT',
@@ -1143,6 +1146,7 @@ let trieWorker = null;
 
 let _filterResolve = null;
 let _filterSeedResolve = null;
+let _batchFilterResolve = null;
 
 function buildTrieInWorker(words) {
   const workerCode = `
@@ -1217,17 +1221,20 @@ function buildTrieInWorker(words) {
       return dice.map(d=>d[Math.floor(rng()*d.length)]);
     }
 
+    let _trie = null;
+
     self.onmessage = function(e) {
       const { type, words, board } = e.data;
       if (type === 'build') {
-        const trie = buildTrie(words);
-        self.postMessage({ type: 'ready', trie });
+        _trie = buildTrie(words);
+        self.postMessage({ type: 'ready' });
       } else if (type === 'analyze') {
-        const result = analyzeBoard(board, e.data.trie);
+        const result = analyzeBoard(board, _trie);
         self.postMessage({ type: 'analysis', ...result });
       } else if (type === 'filter') {
         // Cherche une grille aléatoire avec entre MIN_WORDS et MAX_WORDS mots trouvables
-        const { trie, min, max } = e.data;
+        const { min, max } = e.data;
+        const trie = _trie;
         const MAX_ATTEMPTS = 200;
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
           const candidate = randomBoard();
@@ -1243,7 +1250,8 @@ function buildTrieInWorker(words) {
         self.postMessage({ type: 'filtered', board: fallback, wordCount, attempt: MAX_ATTEMPTS, fallback: true });
       } else if (type === 'filterSeed') {
         // Cherche un code (seed) dont la grille dérivée a entre MIN_WORDS et MAX_WORDS mots
-        const { trie, min, max, codeWords } = e.data;
+        const { min, max, codeWords } = e.data;
+        const trie = _trie;
         const MAX_ATTEMPTS = 200;
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
           const w = codeWords[Math.floor(Math.random() * codeWords.length)];
@@ -1262,6 +1270,28 @@ function buildTrieInWorker(words) {
         const fallback = boardFromSeed(code);
         const { wordCount } = analyzeBoard(fallback, trie);
         self.postMessage({ type: 'filteredSeed', board: fallback, code, wordCount, attempt: MAX_ATTEMPTS, fallback: true });
+      } else if (type === 'batchFilter') {
+        // Génère N grilles valides d'un coup pour alimenter la banque Firebase
+        const { min, max, codeWords, count } = e.data;
+        const trie = _trie;
+        const results = [];
+        const usedCodes = new Set(e.data.usedCodes || []);
+        let attempts = 0;
+        const MAX_ATTEMPTS = count * 80;
+        while (results.length < count && attempts < MAX_ATTEMPTS) {
+          attempts++;
+          const w = codeWords[Math.floor(Math.random() * codeWords.length)];
+          const n = 10 + Math.floor(Math.random() * 90);
+          const code = w + n;
+          if (usedCodes.has(code)) continue;
+          const candidate = boardFromSeed(code);
+          const { wordCount, maxScore } = analyzeBoard(candidate, trie);
+          if (wordCount >= min && wordCount <= max) {
+            usedCodes.add(code);
+            results.push({ code, board: candidate, wordCount, maxScore });
+          }
+        }
+        self.postMessage({ type: 'batchFiltered', results });
       }
     };
   `;
@@ -1269,8 +1299,10 @@ function buildTrieInWorker(words) {
   trieWorker = new Worker(URL.createObjectURL(blob));
   trieWorker.onmessage = (e) => {
     if (e.data.type === 'ready') {
-      trieRoot = e.data.trie;
+      trieRoot = true; // signale que le worker est prêt, le trie est dans le worker
       if (board.length === 16) analyzeCurrentBoard();
+      // Alimente la banque en arrière-plan, sans urgence
+      setTimeout(() => refillBankIfNeeded(), 3000);
     } else if (e.data.type === 'analysis') {
       boardAnalysis = { wordCount: e.data.wordCount, maxScore: e.data.maxScore };
       showBoardAnalysis();
@@ -1283,6 +1315,8 @@ function buildTrieInWorker(words) {
       if (e.data.fallback) console.warn(`[filterSeed] Aucun code idéal en ${e.data.attempt} essais, fallback (${e.data.wordCount} mots)`);
       else console.log(`[filterSeed] Code multi trouvé en ${e.data.attempt} essai(s) — ${e.data.wordCount} mots`);
       if (_filterSeedResolve) { _filterSeedResolve({ board: e.data.board, code: e.data.code }); _filterSeedResolve = null; }
+    } else if (e.data.type === 'batchFiltered') {
+      if (_batchFilterResolve) { _batchFilterResolve(e.data.results); _batchFilterResolve = null; }
     }
   };
   trieWorker.postMessage({ type: 'build', words: [...words] });
@@ -1291,13 +1325,95 @@ function buildTrieInWorker(words) {
 function analyzeCurrentBoard() {
   if (!trieRoot || !trieWorker || board.length !== 16) return;
   boardAnalysis = null;
-  trieWorker.postMessage({ type: 'analyze', board, trie: trieRoot });
+  trieWorker.postMessage({ type: 'analyze', board });
 }
 
 function showBoardAnalysis() {
   const el = document.getElementById('countdownAnalysis');
   if (!el || !boardAnalysis) return;
   el.textContent = `${boardAnalysis.wordCount} mot${boardAnalysis.wordCount!==1?'s':''} possibles · max ${boardAnalysis.maxScore} pt${boardAnalysis.maxScore!==1?'s':''}`;
+}
+
+// ══════════════════════════════════════════════════════════
+// BANQUE DE GRILLES (collection Firebase `boards`)
+// ══════════════════════════════════════════════════════════
+
+// Pioche une grille dans la banque (transaction atomique) et la supprime
+async function pickBoardFromBank() {
+  if (!db) return null;
+  try {
+    // Récupère les 5 plus anciennes grilles disponibles, en choisit une au hasard
+    const snap = await db.collection('boards').orderBy('createdAt', 'asc').limit(5).get();
+    if (snap.empty) return null;
+    const docs = snap.docs;
+    const chosen = docs[Math.floor(Math.random() * docs.length)];
+    // Suppression atomique : si un autre client a déjà pris cette grille, on réessaie
+    const deleted = await db.runTransaction(async tx => {
+      const ref = chosen.ref;
+      const docSnap = await tx.get(ref);
+      if (!docSnap.exists) return false;
+      tx.delete(ref);
+      return docSnap.data();
+    });
+    if (!deleted) {
+      // Rare cas de conflit : réessai récursif
+      return pickBoardFromBank();
+    }
+    console.log(`[bank] Grille récupérée : ${chosen.id} (${deleted.wordCount} mots, max ${deleted.maxScore} pts)`);
+    return { code: chosen.id, board: deleted.board, wordCount: deleted.wordCount, maxScore: deleted.maxScore };
+  } catch(e) {
+    console.warn('[bank] pickBoardFromBank:', e.message);
+    return null;
+  }
+}
+
+// Vérifie le stock et alimente la banque si nécessaire (en arrière-plan)
+async function refillBankIfNeeded() {
+  if (!db || !trieRoot || !trieWorker) return;
+  try {
+    const snap = await db.collection('boards').count().get();
+    const count = snap.data().count;
+    console.log(`[bank] Stock actuel : ${count} grilles`);
+    if (count >= BANK_REFILL_THRESHOLD) return;
+    const needed = BANK_TARGET - count;
+    const batches = Math.ceil(needed / BANK_BATCH_SIZE);
+    console.log(`[bank] Alimentation : ${needed} grilles à générer (${batches} vague(s))`);
+
+    // Récupère les codes existants pour éviter les doublons
+    const existingSnap = await db.collection('boards').select().get();
+    const usedCodes = existingSnap.docs.map(d => d.id);
+
+    for (let b = 0; b < batches; b++) {
+      const results = await new Promise(resolve => {
+        _batchFilterResolve = resolve;
+        trieWorker.postMessage({
+          type: 'batchFilter',
+          min: BOARD_MIN_WORDS, max: BOARD_MAX_WORDS,
+          codeWords: CODE_WORDS,
+          count: BANK_BATCH_SIZE,
+          usedCodes
+        });
+      });
+      if (!results.length) break;
+      // Écriture en batch Firebase
+      const batch = db.batch();
+      for (const r of results) {
+        usedCodes.push(r.code);
+        batch.set(db.collection('boards').doc(r.code), {
+          board: r.board,
+          wordCount: r.wordCount,
+          maxScore: r.maxScore,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      await batch.commit();
+      console.log(`[bank] Vague ${b+1}/${batches} : ${results.length} grilles ajoutées`);
+      // Petite pause pour ne pas monopoliser le worker
+      await new Promise(r => setTimeout(r, 200));
+    }
+  } catch(e) {
+    console.warn('[bank] refillBankIfNeeded:', e.message);
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1516,15 +1632,28 @@ async function startSolo() {
   document.getElementById('multiInfo').style.display='none';
   hide('loadingScreen','badgesScreen');
   show('gameUI');
-  // Recherche une grille avec entre BOARD_MIN_WORDS et BOARD_MAX_WORDS mots
-  if (trieRoot && trieWorker) {
+
+  // 1. Essaie de piocher dans la banque Firebase
+  const banked = await pickBoardFromBank();
+  if (banked) {
+    board = banked.board;
+    // boardAnalysis pré-rempli : pas besoin de recalculer dans le worker
+    boardAnalysis = { wordCount: banked.wordCount, maxScore: banked.maxScore };
+  } else if (trieRoot && trieWorker) {
+    // 2. Fallback : génère une grille filtrée en temps réel (worker calculera boardAnalysis)
+    boardAnalysis = null;
     await new Promise(resolve => {
       _filterResolve = resolve;
-      trieWorker.postMessage({ type: 'filter', trie: trieRoot, min: BOARD_MIN_WORDS, max: BOARD_MAX_WORDS });
+      trieWorker.postMessage({ type: 'filter', min: BOARD_MIN_WORDS, max: BOARD_MAX_WORDS });
     });
   } else {
-    board = randomBoard(); // fallback si le trie n'est pas prêt
+    // 3. Dernier recours : grille aléatoire non filtrée
+    boardAnalysis = null;
+    board = randomBoard();
   }
+
+  // Réalimente la banque en arrière-plan après avoir pioché
+  setTimeout(() => refillBankIfNeeded(), 1000);
   initGame();
 }
 
@@ -1535,28 +1664,38 @@ async function createGame() {
   if (!db) { showNotif('Firebase non disponible.'); return; }
   goFullscreen();
 
-  // Recherche un code dont la grille a entre BOARD_MIN_WORDS et BOARD_MAX_WORDS mots
   let code, boardLetters;
-  if (trieRoot && trieWorker) {
+
+  // 1. Essaie de piocher dans la banque Firebase
+  const banked = await pickBoardFromBank();
+  if (banked) {
+    code = banked.code;
+    boardLetters = banked.board;
+    // boardAnalysis pré-rempli : pas besoin de recalculer dans le worker
+    boardAnalysis = { wordCount: banked.wordCount, maxScore: banked.maxScore };
+  } else if (trieRoot && trieWorker) {
+    // 2. Fallback : génère un code/grille filtré en temps réel (worker calculera boardAnalysis)
+    boardAnalysis = null;
     const result = await new Promise(resolve => {
       _filterSeedResolve = resolve;
-      trieWorker.postMessage({ type: 'filterSeed', trie: trieRoot, min: BOARD_MIN_WORDS, max: BOARD_MAX_WORDS, codeWords: CODE_WORDS });
+      trieWorker.postMessage({ type: 'filterSeed', min: BOARD_MIN_WORDS, max: BOARD_MAX_WORDS, codeWords: CODE_WORDS });
     });
-    // Vérifier que le code n'existe pas déjà en base
     code = result.code;
     boardLetters = result.board;
+    // Vérifier que le code n'existe pas déjà en base
     try {
       const snap = await db.collection('games').doc(code).get();
-      if (snap.exists) {
-        // Code pris : génération classique de secours
-        code = await generateCode();
-        boardLetters = boardFromSeed(code);
-      }
-    } catch(e) { /* réseau KO, on continue quand même */ }
+      if (snap.exists) { code = await generateCode(); boardLetters = boardFromSeed(code); }
+    } catch(e) { /* réseau KO, on continue */ }
   } else {
+    // 3. Dernier recours
+    boardAnalysis = null;
     code = await generateCode();
     boardLetters = boardFromSeed(code);
   }
+
+  // Réalimente la banque en arrière-plan
+  setTimeout(() => refillBankIfNeeded(), 1000);
 
   try {
     await db.collection('games').doc(code).set({
@@ -1652,11 +1791,16 @@ function initGame() {
   document.getElementById('timer').textContent = timerInitLabel;
 
   selectedPath=[]; foundWords=new Set(); score=0;
-  boardAnalysis=null;
+  // Si boardAnalysis a été pré-rempli depuis la banque, on le conserve et on affiche directement.
+  // Sinon on remet à null et on déclenche le calcul dans le worker.
   const el=document.getElementById('countdownAnalysis');
-  if(el){ el.textContent='Analyse en cours…'; }
+  if (boardAnalysis) {
+    showBoardAnalysis();
+  } else {
+    if(el){ el.textContent='Analyse en cours…'; }
+    analyzeCurrentBoard();
+  }
   resetUI(); renderBoard(true); updateTileStates();
-  analyzeCurrentBoard();
   countdown(revealAndStart);
 }
 
