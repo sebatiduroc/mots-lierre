@@ -699,7 +699,6 @@ const dictionary = new Set();
 const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
 
 async function loadDictionary() {
-  alert('loadDictionary démarré');  // ← temporaire
   setMsg('Chargement du dictionnaire…'); setBar(5);
   let text;
   try {
@@ -1302,7 +1301,6 @@ function buildTrieInWorker(words) {
     if (e.data.type === 'ready') {
       trieRoot = true; // signale que le worker est prêt, le trie est dans le worker
       if (board.length === 16) analyzeCurrentBoard();
-      alert('worker ready'); // ← temporaire
       // Alimente la banque en arrière-plan, sans urgence
       setTimeout(() => refillBankIfNeeded(), 3000);
     } else if (e.data.type === 'analysis') {
@@ -1376,7 +1374,6 @@ async function refillBankIfNeeded() {
     const snap = await db.collection('boards').count().get();
     const count = snap.data().count;
     console.log(`[bank] Stock actuel : ${count} grilles`);
-    alert(`[bank] Stock : ${count} grilles`);
     if (count >= BANK_REFILL_THRESHOLD) return;
     const needed = BANK_TARGET - count;
     const batches = Math.ceil(needed / BANK_BATCH_SIZE);
