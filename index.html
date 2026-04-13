@@ -1369,11 +1369,12 @@ async function pickBoardFromBank() {
 
 // Vérifie le stock et alimente la banque si nécessaire (en arrière-plan)
 async function refillBankIfNeeded() {
+  alert('refill appelée, db=' + !!db + ' trie=' + !!trieRoot);
   if (!db || !trieRoot || !trieWorker) return;
   try {
     const snap = await db.collection('boards').limit(BANK_TARGET + 1).get();
     const count = snap.size;
-    console.log(`[bank] Stock actuel : ${count} grilles`);
+    alert(`Stock : ${count} grilles`);
     if (count >= BANK_REFILL_THRESHOLD) return;
     const needed = BANK_TARGET - count;
     const batches = Math.ceil(needed / BANK_BATCH_SIZE);
@@ -1411,7 +1412,7 @@ async function refillBankIfNeeded() {
       await new Promise(r => setTimeout(r, 200));
     }
   } catch(e) {
-    console.warn('[bank] refillBankIfNeeded:', e.message);
+    alert('Erreur refill : ' + e.message);
   }
 }
 
