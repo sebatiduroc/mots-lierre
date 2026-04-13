@@ -186,6 +186,18 @@
     font-family: 'Playfair Display', serif; font-size: 1.1rem;
     color: var(--gold); flex-shrink: 0;
   }
+  .badge-rank {
+    font-family: 'Playfair Display', serif; font-size: 0.75rem;
+    color: var(--text-dim); flex-shrink: 0; min-width: 36px; text-align: left;
+  }
+  .badge-pts {
+    font-family: 'Playfair Display', serif; font-size: 1.1rem;
+    color: var(--gold); flex-shrink: 0; min-width: 48px; text-align: right;
+  }
+  .badge-pts-label {
+    font-size: 0.42rem; letter-spacing: 0.15em; color: var(--text-dim);
+    text-transform: uppercase; text-align: right; display: block; margin-top: 1px;
+  }
   .badge-hint {
     font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.12em;
     text-align: center; margin-top: 12px; padding: 0 16px; line-height: 1.8;
@@ -377,7 +389,10 @@
   .lb-row { display: flex; align-items: center; padding: 9px 12px; border-radius: 6px; margin-bottom: 4px; background: var(--surface); border: 1px solid var(--border); font-size: .76rem; cursor: pointer; transition: background .15s; flex-wrap: wrap; }
   .lb-row:hover { background: var(--surface2); }
   .lb-row.me { border-color: var(--gold); background: rgba(200,169,110,.07); }
-  .lb-rank { color: var(--text-dim); width: 20px; flex-shrink: 0; }
+  .lb-rank { color: var(--text-dim); width: 36px; flex-shrink: 0; font-size: .7rem; }
+  .rank-gold   { color: #f5d060; text-shadow: 0 0 8px rgba(245,208,96,.55); font-weight: 700; }
+  .rank-silver { color: #c0ccd8; text-shadow: 0 0 8px rgba(192,204,216,.45); font-weight: 700; }
+  .rank-bronze { color: #c8845a; text-shadow: 0 0 8px rgba(200,132,90,.45); font-weight: 700; }
   .lb-name { color: var(--cream); flex: 1; margin: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lb-stats { display: flex; gap: 10px; flex-shrink: 0; align-items: center; }
   .lb-score { color: var(--gold); font-family: 'Playfair Display', serif; font-size: .96rem; }
@@ -537,7 +552,7 @@
 <div id="badgesScreen">
   <button class="btn-back" id="btnBackFromBadges">← Retour</button>
   <h2>Badges</h2>
-  <p class="badges-sub">Classement des joueurs connectés</p>
+  <p class="badges-sub">Classement · Points sur les parties actives</p>
   <div id="badgesList">
     <div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>
   </div>
@@ -651,6 +666,9 @@ const WEEK_MS        = 7 * 24 * 60 * 60 * 1000;
 
 // Paliers de badges
 const BADGE_THRESHOLDS = [10,20,30,40,50,60,65,70,75,80,85,90,91,92,93,94,95,96,97,98,99,100];
+
+const BOARD_MIN_WORDS = 50;  // Nombre minimum de mots trouvables
+const BOARD_MAX_WORDS = 100; // Nombre maximum de mots trouvables
 
 const FRENCH_DICE = [
   'AELMNU','AEHLOS','AINOTW','ABORTU','EILTUZ','AEIPSV','AEINRT',
@@ -976,6 +994,12 @@ function showTimeBonusPopup(badge, threshold) {
   document.body.appendChild(popup);
 }
 
+// ── Formate le rang avec ex-æquo ──
+function fmtRank(rank) {
+  if (rank === 1) return '1ᵉʳ';
+  return `${rank}ᵉ`;
+}
+
 // ── Affichage tableau des badges ──
 async function showBadgesScreen() {
   hide('loadingScreen','multiScreen','codeScreen','gameUI');
@@ -989,35 +1013,111 @@ async function showBadgesScreen() {
   }
 
   try {
-    const snap = await db.collection('badges').orderBy('bestBadge','desc').limit(100).get();
-    if (snap.empty) {
-      list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.1em;">Aucun badge encore.<br>Connectez-vous et jouez !</div>';
+    const now = Date.now();
+
+    // Purger les vieilles parties avant d'afficher
+    await purgeOldGames();
+
+    // Charger parties actives + badges en parallèle
+    const [gamesSnap, badgesSnap] = await Promise.all([
+      db.collection('games').where('expiresAt', '>', now).get(),
+      db.collection('badges').get()
+    ]);
+
+    // Index badge par displayName (clé de recherche dans les parties)
+    // Structure : { displayName → { bestBadge, uid } }
+    const badgeByName = {};
+    badgesSnap.forEach(doc => {
+      const d = doc.data();
+      const name = d.displayName || '';
+      if (name) badgeByName[name] = { bestBadge: d.bestBadge || 0, uid: doc.id };
+    });
+
+    // Agréger les points par pseudo sur les parties actives
+    // On ne comptabilise que les pseudos qui ont un compte (présents dans badgeByName)
+    const pointsByName = {}; // pseudo → totalPoints
+    gamesSnap.forEach(doc => {
+      const players = doc.data().players || {};
+      Object.entries(players).forEach(([pseudo, val]) => {
+        if (val.score === undefined) return;
+        if (!(pseudo in badgeByName)) return; // joueur anonyme, ignoré
+        const pts = (val.wordList || []).reduce((s, w) => s + calcScore(w), 0);
+        pointsByName[pseudo] = (pointsByName[pseudo] || 0) + pts;
+      });
+    });
+
+    // Construire la liste triée : points desc, ex-æquo alphabétique
+    const entries = Object.entries(pointsByName)
+      .sort(([nameA, ptA], [nameB, ptB]) => {
+        if (ptB !== ptA) return ptB - ptA;
+        return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' });
+      });
+
+    // Inclure aussi les joueurs connectés avec 0 point (présents dans badges mais pas dans parties actives)
+    const namesInRanking = new Set(entries.map(([n]) => n));
+    Object.keys(badgeByName).forEach(name => {
+      if (!namesInRanking.has(name)) entries.push([name, 0]);
+    });
+    // Re-trier après ajout des zéros (déjà alphabétique pour les ex-æquo)
+    entries.sort(([nameA, ptA], [nameB, ptB]) => {
+      if (ptB !== ptA) return ptB - ptA;
+      return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' });
+    });
+
+    if (!entries.length) {
+      list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.1em;">Aucun joueur connecté encore.<br>Créez un compte et jouez !</div>';
+      document.getElementById('badgesHint').textContent = currentUser ? '' : 'Connectez-vous pour apparaître dans ce classement et jouer plus longtemps.';
       return;
     }
+
+    // Calcul des rangs avec ex-æquo
+    // rank[i] = position réelle (ex : 1,2,3,3,3,6…)
+    const ranks = [];
+    let currentRank = 1;
+    for (let i = 0; i < entries.length; i++) {
+      if (i > 0 && entries[i][1] === entries[i-1][1]) {
+        ranks.push(ranks[i-1]); // même rang
+      } else {
+        ranks.push(currentRank);
+      }
+      currentRank++;
+    }
+
+    // Détecter si un rang est partagé (ex-æquo)
+    const rankCount = {};
+    ranks.forEach(r => { rankCount[r] = (rankCount[r] || 0) + 1; });
+
     list.innerHTML = '';
-    snap.forEach((doc, idx) => {
-      const d = doc.data();
-      const isMe = currentUser && doc.id === currentUser.uid;
-      const medal = getBadgeMedalClass(d.bestBadge);
-      const updatedAt = d.updatedAt ? new Date(d.updatedAt.toMillis()).toLocaleDateString('fr-FR') : '';
+    entries.forEach(([name, totalPts], idx) => {
+      const rank = ranks[idx];
+      const isEx = rankCount[rank] > 1;
+      const rankLabel = fmtRank(rank) + (isEx ? ' ex' : '');
+      const badgeInfo = badgeByName[name] || { bestBadge: 0 };
+      const isMe = currentUser && (
+        (currentUser.displayName && currentUser.displayName === name) ||
+        (currentUser.email && currentUser.email === name) ||
+        (currentUser.uid && badgeInfo.uid === currentUser.uid)
+      );
+      const medal = getBadgeMedalClass(badgeInfo.bestBadge);
+
+      const rc = rankClass(rank);
       const row = document.createElement('div');
       row.className = 'badge-row' + (isMe ? ' me' : '');
       row.innerHTML = `
-        <div class="badge-medal ${medal}">${d.bestBadge}%</div>
+        <div class="badge-rank${rc ? ' '+rc : ''}">${rankLabel}</div>
         <div class="badge-info">
-          <div class="badge-name${isMe?' me-name':''}">${escHtml(d.displayName || 'Joueur')}${isMe?' <span style="font-size:.58rem;color:var(--text-dim)">(moi)</span>':''}</div>
-          ${updatedAt ? `<div class="badge-date">${updatedAt}</div>` : ''}
+          <div class="badge-name${isMe ? ' me-name' : ''}">${escHtml(name)}${isMe ? ' <span style="font-size:.58rem;color:var(--text-dim)">(moi)</span>' : ''}</div>
+          <div class="badge-date">Badge : ${badgeInfo.bestBadge ? badgeInfo.bestBadge + '%' : '—'}</div>
         </div>
-        <div class="badge-pct">${d.bestBadge}%</div>`;
+        <div style="text-align:right;flex-shrink:0;">
+          <div class="badge-pts">${totalPts}</div>
+          <span class="badge-pts-label">pts actifs</span>
+        </div>`;
       list.appendChild(row);
     });
 
     const hint = document.getElementById('badgesHint');
-    if (!currentUser) {
-      hint.textContent = 'Connectez-vous pour apparaître dans ce classement et jouer plus longtemps.';
-    } else {
-      hint.textContent = '';
-    }
+    hint.textContent = currentUser ? '' : 'Connectez-vous pour apparaître dans ce classement et jouer plus longtemps.';
   } catch(e) {
     list.innerHTML = `<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;">Erreur de chargement.<br><small>${e.message}</small></div>`;
   }
@@ -1040,6 +1140,9 @@ let currentBestBadge = 0; // badge actuel du joueur connecté
 // ══════════════════════════════════════════════════════════
 let trieRoot = null;
 let trieWorker = null;
+
+let _filterResolve = null;
+let _filterSeedResolve = null;
 
 function buildTrieInWorker(words) {
   const workerCode = `
@@ -1093,6 +1196,27 @@ function buildTrieInWorker(words) {
       return { wordCount: found.size, maxScore };
     }
 
+    const FRENCH_DICE_W = [
+      'AELMNU','AEHLOS','AINOTW','ABORTU','EILTUZ','AEIPSV','AEINRT',
+      'EIORTY','ADEILS','ACEINO','ACELRS','EJLRST','EIPRSU','AEKOQS',
+      'ACFNTX','CEGILR'
+    ];
+    function randomBoard() {
+      const dice=[...FRENCH_DICE_W];
+      for (let i=dice.length-1;i>0;i--) { const j=Math.random()*(i+1)|0; [dice[i],dice[j]]=[dice[j],dice[i]]; }
+      return dice.map(d=>d[Math.random()*d.length|0]);
+    }
+    function seededRng(seed) {
+      let s=0;
+      for (let i=0;i<seed.length;i++) s=(s*31+seed.charCodeAt(i))>>>0;
+      return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; };
+    }
+    function boardFromSeed(seed) {
+      const rng=seededRng(seed), dice=[...FRENCH_DICE_W];
+      for (let i=dice.length-1;i>0;i--) { const j=Math.floor(rng()*(i+1)); [dice[i],dice[j]]=[dice[j],dice[i]]; }
+      return dice.map(d=>d[Math.floor(rng()*d.length)]);
+    }
+
     self.onmessage = function(e) {
       const { type, words, board } = e.data;
       if (type === 'build') {
@@ -1101,6 +1225,43 @@ function buildTrieInWorker(words) {
       } else if (type === 'analyze') {
         const result = analyzeBoard(board, e.data.trie);
         self.postMessage({ type: 'analysis', ...result });
+      } else if (type === 'filter') {
+        // Cherche une grille aléatoire avec entre MIN_WORDS et MAX_WORDS mots trouvables
+        const { trie, min, max } = e.data;
+        const MAX_ATTEMPTS = 200;
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+          const candidate = randomBoard();
+          const { wordCount } = analyzeBoard(candidate, trie);
+          if (wordCount >= min && wordCount <= max) {
+            self.postMessage({ type: 'filtered', board: candidate, wordCount, attempt: attempt + 1 });
+            return;
+          }
+        }
+        // Fallback : renvoie la dernière grille générée même hors critères
+        const fallback = randomBoard();
+        const { wordCount } = analyzeBoard(fallback, trie);
+        self.postMessage({ type: 'filtered', board: fallback, wordCount, attempt: MAX_ATTEMPTS, fallback: true });
+      } else if (type === 'filterSeed') {
+        // Cherche un code (seed) dont la grille dérivée a entre MIN_WORDS et MAX_WORDS mots
+        const { trie, min, max, codeWords } = e.data;
+        const MAX_ATTEMPTS = 200;
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+          const w = codeWords[Math.floor(Math.random() * codeWords.length)];
+          const n = 10 + Math.floor(Math.random() * 90);
+          const code = w + n;
+          const candidate = boardFromSeed(code);
+          const { wordCount } = analyzeBoard(candidate, trie);
+          if (wordCount >= min && wordCount <= max) {
+            self.postMessage({ type: 'filteredSeed', board: candidate, code, wordCount, attempt: attempt + 1 });
+            return;
+          }
+        }
+        // Fallback
+        const w = codeWords[Math.floor(Math.random() * codeWords.length)];
+        const code = w + (10 + Math.floor(Math.random() * 90));
+        const fallback = boardFromSeed(code);
+        const { wordCount } = analyzeBoard(fallback, trie);
+        self.postMessage({ type: 'filteredSeed', board: fallback, code, wordCount, attempt: MAX_ATTEMPTS, fallback: true });
       }
     };
   `;
@@ -1113,6 +1274,15 @@ function buildTrieInWorker(words) {
     } else if (e.data.type === 'analysis') {
       boardAnalysis = { wordCount: e.data.wordCount, maxScore: e.data.maxScore };
       showBoardAnalysis();
+    } else if (e.data.type === 'filtered') {
+      if (e.data.fallback) console.warn(`[filter] Aucune grille idéale en ${e.data.attempt} essais, fallback (${e.data.wordCount} mots)`);
+      else console.log(`[filter] Grille solo trouvée en ${e.data.attempt} essai(s) — ${e.data.wordCount} mots`);
+      board = e.data.board;
+      if (_filterResolve) { _filterResolve(); _filterResolve = null; }
+    } else if (e.data.type === 'filteredSeed') {
+      if (e.data.fallback) console.warn(`[filterSeed] Aucun code idéal en ${e.data.attempt} essais, fallback (${e.data.wordCount} mots)`);
+      else console.log(`[filterSeed] Code multi trouvé en ${e.data.attempt} essai(s) — ${e.data.wordCount} mots`);
+      if (_filterSeedResolve) { _filterSeedResolve({ board: e.data.board, code: e.data.code }); _filterSeedResolve = null; }
     }
   };
   trieWorker.postMessage({ type: 'build', words: [...words] });
@@ -1340,13 +1510,21 @@ function goFullscreen() {
 // ══════════════════════════════════════════════════════════
 // SOLO
 // ══════════════════════════════════════════════════════════
-function startSolo() {
+async function startSolo() {
   document.getElementById('pseudoModal').style.display = 'none';
   goFullscreen(); currentMode='solo'; currentGameCode=''; currentPseudo='';
   document.getElementById('multiInfo').style.display='none';
   hide('loadingScreen','badgesScreen');
   show('gameUI');
-  board=randomBoard();
+  // Recherche une grille avec entre BOARD_MIN_WORDS et BOARD_MAX_WORDS mots
+  if (trieRoot && trieWorker) {
+    await new Promise(resolve => {
+      _filterResolve = resolve;
+      trieWorker.postMessage({ type: 'filter', trie: trieRoot, min: BOARD_MIN_WORDS, max: BOARD_MAX_WORDS });
+    });
+  } else {
+    board = randomBoard(); // fallback si le trie n'est pas prêt
+  }
   initGame();
 }
 
@@ -1356,8 +1534,30 @@ function startSolo() {
 async function createGame() {
   if (!db) { showNotif('Firebase non disponible.'); return; }
   goFullscreen();
-  const code = await generateCode();
-  const boardLetters = boardFromSeed(code);
+
+  // Recherche un code dont la grille a entre BOARD_MIN_WORDS et BOARD_MAX_WORDS mots
+  let code, boardLetters;
+  if (trieRoot && trieWorker) {
+    const result = await new Promise(resolve => {
+      _filterSeedResolve = resolve;
+      trieWorker.postMessage({ type: 'filterSeed', trie: trieRoot, min: BOARD_MIN_WORDS, max: BOARD_MAX_WORDS, codeWords: CODE_WORDS });
+    });
+    // Vérifier que le code n'existe pas déjà en base
+    code = result.code;
+    boardLetters = result.board;
+    try {
+      const snap = await db.collection('games').doc(code).get();
+      if (snap.exists) {
+        // Code pris : génération classique de secours
+        code = await generateCode();
+        boardLetters = boardFromSeed(code);
+      }
+    } catch(e) { /* réseau KO, on continue quand même */ }
+  } else {
+    code = await generateCode();
+    boardLetters = boardFromSeed(code);
+  }
+
   try {
     await db.collection('games').doc(code).set({
       board: boardLetters,
@@ -1723,56 +1923,78 @@ async function showMultiOver(words, badgeResult) {
   });
 }
 
+function rankClass(rank) {
+  if (rank === 1) return 'rank-gold';
+  if (rank === 2) return 'rank-silver';
+  if (rank === 3) return 'rank-bronze';
+  return '';
+}
+
 function renderLbRows(players, container) {
-  const sorted=Object.entries(players)
-    .filter(([,v])=>v.score!==undefined)
-    .sort(([nameA,a],[nameB,b])=>{
-      const scA = (a.wordList||[]).reduce((s,w)=>s+calcScore(w),0);
-      const scB = (b.wordList||[]).reduce((s,w)=>s+calcScore(w),0);
-      if (scB!==scA) return scB-scA;
-      const wA=(a.wordList||[]).length, wB=(b.wordList||[]).length;
-      if (wB!==wA) return wB-wA;
-      const longA=Math.max(0,...(a.wordList||[]).map(w=>w.length));
-      const longB=Math.max(0,...(b.wordList||[]).map(w=>w.length));
-      if (longB!==longA) return longB-longA;
-      return (a.playedAt||0)-(b.playedAt||0);
+  const sorted = Object.entries(players)
+    .filter(([, v]) => v.score !== undefined)
+    .map(([name, val]) => {
+      const realScore = (val.wordList || []).reduce((s, w) => s + calcScore(w), 0);
+      return [name, val, realScore];
+    })
+    .sort(([nameA,, scA], [nameB,, scB]) => {
+      if (scB !== scA) return scB - scA;
+      return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' });
     });
 
   if (!sorted.length) { container.innerHTML='<div class="lb-hint">Aucun score encore</div>'; return; }
 
-  const winner = sorted.length ? sorted[0][0] : null;
+  // Calcul des rangs avec ex-æquo
+  const ranks = [];
+  let nextRank = 1;
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i][2] === sorted[i-1][2]) {
+      ranks.push(ranks[i-1]);
+    } else {
+      ranks.push(nextRank);
+    }
+    nextRank++;
+  }
+  const rankCount = {};
+  ranks.forEach(r => { rankCount[r] = (rankCount[r] || 0) + 1; });
+
+  // Détecter s'il y a un seul vainqueur incontesté (rang 1 non partagé)
+  const hasUniqueWinner = ranks[0] === 1 && rankCount[1] === 1 && sorted.length > 1;
   const uniqueWords = computeUniqueWords(players);
 
   const openNames = new Set();
   container.querySelectorAll('.lb-words.open').forEach(el => openNames.add(el.dataset.player));
 
   container.innerHTML = '';
-  sorted.forEach(([name,val],idx) => {
-    const isWinner = name === winner && sorted.length > 1;
+  sorted.forEach(([name, val, realScore], idx) => {
+    const rank = ranks[idx];
+    const isEx = rankCount[rank] > 1;
+    const rankLabel = (rank === 1 ? '1ᵉʳ' : `${rank}ᵉ`) + (isEx ? ' ex' : '');
+    const isWinner = hasUniqueWinner && rank === 1;
     const isMe = name === currentPseudo;
     const wlist = val.wordList || [];
-    const realScore = wlist.reduce((s,w)=>s+calcScore(w),0);
 
     const row = document.createElement('div');
-    row.className = 'lb-row' + (isMe?' me':'');
+    row.className = 'lb-row' + (isMe ? ' me' : '');
 
     const wordsHtml = wlist.length
       ? wlist.map(w => {
           const isUniq = uniqueWords.has(w);
-          return `<span class="lb-word-chip${isUniq?' word-unique':''}">${w}&nbsp;(+${calcScore(w)})</span>`;
+          return `<span class="lb-word-chip${isUniq ? ' word-unique' : ''}">${w}&nbsp;(+${calcScore(w)})</span>`;
         }).join('')
       : '<span style="font-size:.55rem;color:var(--text-dim);">—</span>';
 
     const isOpen = openNames.has(name);
 
+    const rc = rankClass(rank);
     row.innerHTML = `
-      <span class="lb-rank">${idx+1}.</span>
-      <span class="lb-name${isWinner?' winner':''}">${name}${isMe?' (moi)':''}</span>
+      <span class="lb-rank${rc ? ' '+rc : ''}">${rankLabel}</span>
+      <span class="lb-name${isWinner ? ' winner' : ''}">${name}${isMe ? ' (moi)' : ''}</span>
       <div class="lb-stats">
-        <span class="lb-wc">${wlist.length} mot${wlist.length!==1?'s':''}</span>
-        <span class="lb-score">${realScore} pt${realScore!==1?'s':''}</span>
+        <span class="lb-wc">${wlist.length} mot${wlist.length !== 1 ? 's' : ''}</span>
+        <span class="lb-score">${realScore} pt${realScore !== 1 ? 's' : ''}</span>
       </div>
-      <div class="lb-words${isOpen?' open':''}" data-player="${name}">${wordsHtml}</div>`;
+      <div class="lb-words${isOpen ? ' open' : ''}" data-player="${name}">${wordsHtml}</div>`;
 
     row.addEventListener('click', () => row.querySelector('.lb-words').classList.toggle('open'));
     container.appendChild(row);
