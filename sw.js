@@ -7,10 +7,10 @@
 //   • Firebase API              → réseau uniquement (toujours online)
 // ══════════════════════════════════════════════════════════
 
-const VERSION   = 'mots-lierre-v1';
-const SHELL     = 'mots-lierre-shell-v1';
-const DICT      = 'mots-lierre-dict-v1';
-const FONTS     = 'mots-lierre-fonts-v1';
+const VERSION   = 'mots-lierre-v2';
+const SHELL     = 'mots-lierre-shell-v2';
+const DICT      = 'mots-lierre-dict-v2';
+const FONTS     = 'mots-lierre-fonts-v2';
 
 // Fichiers à précacher au moment de l'install
 const SHELL_ASSETS = [
