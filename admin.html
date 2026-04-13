@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Mots-Lierre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --surface: #13131a;
+    --surface2: #1a1a24;
+    --border: #252530;
+    --border2: #32323f;
+    --gold: #c8a96e;
+    --gold-light: #e8c98e;
+    --cream: #f0e8d8;
+    --red: #e05252;
+    --red-dim: rgba(224,82,82,0.12);
+    --green: #52c97a;
+    --text: #c8c0b8;
+    --text-dim: #5a5468;
+    --rank-gold: #f5d060;
+    --rank-silver: #c0ccd8;
+    --rank-bronze: #c8845a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Auth overlay ── */
+  #authWall {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px; padding: 32px;
+    z-index: 900;
+  }
+  #authWall h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.6rem, 5vw, 2.2rem);
+    color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  #authWall p {
+    font-size: 0.62rem; letter-spacing: 0.2em; color: var(--text-dim);
+    text-transform: uppercase; text-align: center; line-height: 1.9;
+    max-width: 320px;
+  }
+  #authError {
+    font-size: 0.65rem; color: var(--red); text-align: center; min-height: 16px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Main app ── */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+
+  /* ── Header ── */
+  header {
+    padding: 20px 28px 0;
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif; font-size: 1.4rem;
+    color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  #userBadge {
+    font-size: 0.55rem; letter-spacing: 0.18em; color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  #userBadge span { color: var(--gold); }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex; gap: 0; padding: 20px 28px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  .tab-btn {
+    padding: 10px 22px; border: none; background: transparent;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer;
+    color: var(--text-dim); border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    margin-bottom: -1px;
+  }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+  .tab-count {
+    display: inline-block;
+    background: var(--surface2); border-radius: 4px;
+    padding: 1px 6px; font-size: 0.55rem; margin-left: 6px;
+    color: var(--text-dim); vertical-align: middle;
+  }
+  .tab-btn.active .tab-count { background: rgba(200,169,110,0.15); color: var(--gold); }
+
+  /* ── Tab content ── */
+  .tab-panel { display: none; padding: 20px 28px 40px; }
+  .tab-panel.active { display: block; }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .toolbar-label {
+    font-size: 0.55rem; letter-spacing: 0.2em; color: var(--text-dim);
+    text-transform: uppercase; flex: 1;
+  }
+  .btn {
+    padding: 8px 18px; border-radius: 7px;
+    font-family: 'DM Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 0.13em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .btn-danger {
+    background: var(--red); border: 1.5px solid var(--red); color: #0a0a0c;
+    font-weight: 500;
+  }
+  .btn-danger:hover { background: #f07070; border-color: #f07070; }
+  .btn-danger:disabled { opacity: 0.3; cursor: default; }
+  .btn-ghost {
+    background: transparent; border: 1.5px solid var(--border2); color: var(--text-dim);
+  }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-ghost:disabled { opacity: 0.35; cursor: default; }
+  .btn-reload {
+    background: transparent; border: 1.5px solid var(--border2); color: var(--text-dim);
+    padding: 7px 12px;
+  }
+  .btn-reload:hover { border-color: var(--gold-light); color: var(--gold-light); }
+
+  /* ── Select all row ── */
+  .select-all-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px;
+    font-size: 0.6rem; letter-spacing: 0.12em; color: var(--text-dim);
+    text-transform: uppercase; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .select-all-row:hover { color: var(--text); }
+
+  /* ── Item rows ── */
+  .item-list { display: flex; flex-direction: column; gap: 3px; }
+  .item-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 7px; cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .item-row:hover { background: var(--surface2); }
+  .item-row.checked { border-color: rgba(224,82,82,0.4); background: var(--red-dim); }
+
+  /* Checkbox */
+  .cb {
+    width: 16px; height: 16px; border-radius: 3px;
+    border: 1.5px solid var(--border2); background: var(--surface2);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all 0.12s;
+  }
+  .item-row.checked .cb {
+    background: var(--red); border-color: var(--red);
+  }
+  .cb::after {
+    content: ''; display: none;
+    width: 5px; height: 9px;
+    border: 2px solid #0a0a0c;
+    border-top: none; border-left: none;
+    transform: rotate(45deg) translateY(-1px);
+  }
+  .item-row.checked .cb::after { display: block; }
+
+  /* Item info */
+  .item-main { flex: 1; min-width: 0; }
+  .item-name {
+    font-size: 0.82rem; color: var(--cream);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .item-sub {
+    font-size: 0.52rem; letter-spacing: 0.1em; color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .item-stats {
+    display: flex; gap: 14px; flex-shrink: 0; align-items: center;
+    flex-wrap: wrap; justify-content: flex-end;
+  }
+  .stat-pill {
+    text-align: center;
+  }
+  .stat-val {
+    font-family: 'Playfair Display', serif; font-size: 1rem;
+    color: var(--gold); line-height: 1;
+  }
+  .stat-lbl {
+    font-size: 0.42rem; letter-spacing: 0.15em; color: var(--text-dim);
+    text-transform: uppercase; display: block; margin-top: 1px;
+  }
+  .stat-pill.green .stat-val { color: var(--green); }
+  .stat-pill.red .stat-val { color: var(--red); }
+
+  /* Expired tag */
+  .tag {
+    font-size: 0.48rem; letter-spacing: 0.15em; text-transform: uppercase;
+    border-radius: 4px; padding: 2px 7px; flex-shrink: 0;
+  }
+  .tag-expired { background: rgba(224,82,82,0.15); color: var(--red); border: 1px solid rgba(224,82,82,0.3); }
+  .tag-active  { background: rgba(82,201,122,0.1); color: var(--green); border: 1px solid rgba(82,201,122,0.25); }
+
+  /* Badge medal (compact) */
+  .mini-medal {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', serif; font-size: 0.62rem; font-weight: 700;
+    border: 2px solid var(--border2);
+    background: var(--surface2); color: var(--text-dim);
+  }
+  .mini-medal.b100 { background:#fff8e0;color:#7a5c00;border-color:#e8c98e; }
+  .mini-medal.b90  { background:#e8f0ff;color:#1a3a7a;border-color:#6090e0; }
+  .mini-medal.b80  { background:#f0f8f0;color:#1a5a2a;border-color:#52c97a; }
+  .mini-medal.b70  { background:#fff0e8;color:#7a3010;border-color:#e07840; }
+  .mini-medal.b60  { background:#f8f0ff;color:#4a1a7a;border-color:#a060e0; }
+  .mini-medal.b50  { background:#fff4f4;color:#7a2020;border-color:#e05252; }
+
+  /* Loading / empty */
+  .msg-center {
+    text-align: center; padding: 40px 0;
+    font-size: 0.65rem; letter-spacing: 0.15em;
+    color: var(--text-dim); text-transform: uppercase; line-height: 2;
+  }
+
+  /* Log strip */
+  #logStrip {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 10px 28px; font-size: 0.62rem; letter-spacing: 0.1em;
+    color: var(--text-dim); display: none; z-index: 50;
+  }
+  #logStrip.ok  { color: var(--green); border-top-color: rgba(82,201,122,0.4); }
+  #logStrip.err { color: var(--red);   border-top-color: rgba(224,82,82,0.4); }
+
+  /* Auth form */
+  .auth-input {
+    background: var(--surface); border: 1.5px solid var(--border2);
+    border-radius: 9px; padding: 11px 16px;
+    color: var(--cream); font-family: 'DM Mono', monospace;
+    font-size: 0.85rem; width: min(88vw, 300px); outline: none;
+    transition: border-color 0.15s;
+  }
+  .auth-input:focus { border-color: var(--gold); }
+  .btn-auth-submit {
+    padding: 12px 28px; border-radius: 9px; border: none;
+    background: var(--gold); color: #0a0a0c;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    cursor: pointer; font-weight: 500; width: min(88vw, 300px);
+    transition: background 0.15s;
+  }
+  .btn-auth-submit:hover { background: var(--gold-light); }
+
+  @media (max-width: 540px) {
+    header, .tabs, .tab-panel { padding-left: 16px; padding-right: 16px; }
+    .item-stats { display: none; }
+    #logStrip { padding: 10px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Auth wall ── -->
+<div id="authWall">
+  <h1>Mots-Lierre</h1>
+  <p>Accès réservé à l'administrateur.<br>Connectez-vous avec votre compte Google.</p>
+  <button class="btn-auth-submit" onclick="loginGoogle()" style="max-width:300px;">
+    Connexion Google
+  </button>
+  <div id="authError"></div>
+</div>
+
+<!-- ── App ── -->
+<div id="app">
+  <header>
+    <h1>Administration</h1>
+    <div id="userBadge"></div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('games')">
+      Parties <span class="tab-count" id="tabCountGames">—</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('badges')">
+      Badges <span class="tab-count" id="tabCountBadges">—</span>
+    </button>
+  </nav>
+
+  <!-- ── Tab : Parties ── -->
+  <div class="tab-panel active" id="panelGames">
+    <div class="toolbar">
+      <span class="toolbar-label" id="selLabelGames">Chargement…</span>
+      <button class="btn btn-reload" onclick="loadGames()" title="Rafraîchir">↺</button>
+      <button class="btn btn-ghost" onclick="toggleAllGames()" id="btnToggleAllGames">Tout sélectionner</button>
+      <button class="btn btn-danger" id="btnDeleteGames" disabled onclick="deleteSelectedGames()">
+        Supprimer la sélection
+      </button>
+    </div>
+    <div class="select-all-row" onclick="toggleAllGames()">
+      <div class="cb" id="cbAllGames"></div>
+      Tout sélectionner / désélectionner
+    </div>
+    <div class="item-list" id="gamesList">
+      <div class="msg-center">Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ── Tab : Badges ── -->
+  <div class="tab-panel" id="panelBadges">
+    <div class="toolbar">
+      <span class="toolbar-label" id="selLabelBadges">Chargement…</span>
+      <button class="btn btn-reload" onclick="loadBadges()" title="Rafraîchir">↺</button>
+      <button class="btn btn-ghost" onclick="toggleAllBadges()" id="btnToggleAllBadges">Tout sélectionner</button>
+      <button class="btn btn-danger" id="btnDeleteBadges" disabled onclick="deleteSelectedBadges()">
+        Réinitialiser la sélection
+      </button>
+    </div>
+    <div class="select-all-row" onclick="toggleAllBadges()">
+      <div class="cb" id="cbAllBadges"></div>
+      Tout sélectionner / désélectionner
+    </div>
+    <div class="item-list" id="badgesList">
+      <div class="msg-center">Chargement…</div>
+    </div>
+  </div>
+</div>
+
+<div id="logStrip"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
+// ══ Firebase ══
+const app = firebase.initializeApp({
+  apiKey:            "AIzaSyCYkcBWDpBzRDaGlaVB5XiVDBWcxsimHMo",
+  authDomain:        "boggle-7b3e5.firebaseapp.com",
+  projectId:         "boggle-7b3e5",
+  storageBucket:     "boggle-7b3e5.firebasestorage.app",
+  messagingSenderId: "523024246479",
+  appId:             "1:523024246479:web:bc1af588e9e3fff18df9ba"
+});
+const db   = firebase.firestore();
+const auth = firebase.auth();
+
+const ADMIN_EMAIL = 's32.dumortier@gmail.com';
+
+// ══ Auth ══
+auth.onAuthStateChanged(user => {
+  if (user && user.email === ADMIN_EMAIL) {
+    document.getElementById('authWall').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('userBadge').innerHTML =
+      `Connecté · <span>${user.email}</span>`;
+    loadGames();
+    loadBadges();
+  } else if (user) {
+    document.getElementById('authError').textContent =
+      'Accès refusé — ce compte n\'est pas autorisé.';
+    auth.signOut();
+  }
+});
+
+async function loginGoogle() {
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ login_hint: ADMIN_EMAIL });
+    await auth.signInWithPopup(provider);
+  } catch(e) {
+    document.getElementById('authError').textContent = e.message;
+  }
+}
+
+// ══ Tabs ══
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', (i===0&&tab==='games')||(i===1&&tab==='badges')));
+  document.getElementById('panelGames').classList.toggle('active', tab==='games');
+  document.getElementById('panelBadges').classList.toggle('active', tab==='badges');
+}
+
+// ══ Log strip ══
+let logTimer;
+function showLog(msg, type='') {
+  const el = document.getElementById('logStrip');
+  el.textContent = msg; el.className = type; el.style.display = 'block';
+  clearTimeout(logTimer);
+  logTimer = setTimeout(() => { el.style.display='none'; }, 4000);
+}
+
+// ══ Score helper ══
+function calcScore(w) {
+  const n = w.length;
+  if (n <= 4) return 1; if (n===5) return 2;
+  if (n===6) return 3;  if (n===7) return 5; return 11;
+}
+
+// ══ Date helper ══
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+}
+function fmtExpiry(ms) {
+  const diff = ms - Date.now();
+  if (diff <= 0) return 'Expirée';
+  const h = Math.floor(diff / 3600000);
+  if (h < 24) return `expire dans ${h}h`;
+  return `expire dans ${Math.floor(h/24)}j`;
+}
+
+// ══ Badge medal class ══
+function medalClass(b) {
+  if (b>=90) return 'b100'; if (b>=80) return 'b90'; if (b>=70) return 'b80';
+  if (b>=60) return 'b70';  if (b>=50) return 'b60'; return 'b50';
+}
+
+// ════════════════════════════════════════════
+// GAMES TAB
+// ════════════════════════════════════════════
+let gamesData = [];
+let selectedGames = new Set();
+
+async function loadGames() {
+  const list = document.getElementById('gamesList');
+  list.innerHTML = '<div class="msg-center">Chargement…</div>';
+  selectedGames.clear(); updateGamesUI();
+  try {
+    const snap = await db.collection('games').orderBy('createdAt','desc').limit(200).get();
+    gamesData = [];
+    snap.forEach(doc => gamesData.push({ id: doc.id, ...doc.data() }));
+    document.getElementById('tabCountGames').textContent = gamesData.length;
+    renderGames();
+  } catch(e) {
+    list.innerHTML = `<div class="msg-center">Erreur : ${e.message}</div>`;
+  }
+}
+
+function renderGames() {
+  const now = Date.now();
+  const list = document.getElementById('gamesList');
+  if (!gamesData.length) {
+    list.innerHTML = '<div class="msg-center">Aucune partie.</div>';
+    document.getElementById('selLabelGames').textContent = 'Aucune partie';
+    return;
+  }
+  list.innerHTML = '';
+  gamesData.forEach(g => {
+    const players = g.players || {};
+    const playerEntries = Object.entries(players).filter(([,v]) => v.score !== undefined);
+    const totalPlayers = playerEntries.length;
+    const totalWords = playerEntries.reduce((s,[,v]) => s + (v.wordList||[]).length, 0);
+    const totalPts  = playerEntries.reduce((s,[,v]) =>
+      s + (v.wordList||[]).reduce((ps,w) => ps + calcScore(w), 0), 0);
+    const isExpired = now > (g.expiresAt || 0);
+    const createdTs = g.createdAt ? g.createdAt.toMillis() : (g.createdAtMs || 0);
+
+    const row = document.createElement('div');
+    row.className = 'item-row' + (selectedGames.has(g.id) ? ' checked' : '');
+    row.dataset.id = g.id;
+    row.innerHTML = `
+      <div class="cb"></div>
+      <div class="item-main">
+        <div class="item-name">${g.id}</div>
+        <div class="item-sub">Créée le ${fmtDate(createdTs)} · ${fmtExpiry(g.expiresAt||0)}</div>
+      </div>
+      <div class="item-stats">
+        <div class="stat-pill">
+          <div class="stat-val">${totalPlayers}</div>
+          <span class="stat-lbl">joueur${totalPlayers!==1?'s':''}</span>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-val">${totalWords}</div>
+          <span class="stat-lbl">mots</span>
+        </div>
+        <div class="stat-pill ${totalPts>0?'green':''}">
+          <div class="stat-val">${totalPts}</div>
+          <span class="stat-lbl">pts</span>
+        </div>
+        <span class="tag ${isExpired?'tag-expired':'tag-active'}">${isExpired?'Expirée':'Active'}</span>
+      </div>`;
+    row.addEventListener('click', () => toggleGame(g.id, row));
+    list.appendChild(row);
+  });
+  updateGamesUI();
+}
+
+function toggleGame(id, row) {
+  if (selectedGames.has(id)) selectedGames.delete(id);
+  else selectedGames.add(id);
+  row.classList.toggle('checked', selectedGames.has(id));
+  updateGamesUI();
+}
+
+function toggleAllGames() {
+  if (selectedGames.size === gamesData.length) {
+    selectedGames.clear();
+  } else {
+    gamesData.forEach(g => selectedGames.add(g.id));
+  }
+  renderGames();
+}
+
+function updateGamesUI() {
+  const n = selectedGames.size, total = gamesData.length;
+  const btn = document.getElementById('btnDeleteGames');
+  btn.disabled = n === 0;
+  btn.textContent = n > 0 ? `Supprimer (${n})` : 'Supprimer la sélection';
+  document.getElementById('selLabelGames').textContent =
+    total ? `${n} / ${total} sélectionnée${n!==1?'s':''}` : 'Aucune partie';
+  const allCb = document.getElementById('cbAllGames');
+  allCb.classList.toggle('checked-all', n > 0 && n === total);
+  // Sync individual rows
+  document.querySelectorAll('#gamesList .item-row').forEach(row => {
+    const checked = selectedGames.has(row.dataset.id);
+    row.classList.toggle('checked', checked);
+  });
+}
+
+async function deleteSelectedGames() {
+  const ids = [...selectedGames];
+  if (!ids.length) return;
+  if (!confirm(`Supprimer ${ids.length} partie${ids.length!==1?'s':''} ?\n\nCette action est irréversible.`)) return;
+
+  document.getElementById('btnDeleteGames').disabled = true;
+  showLog(`Suppression de ${ids.length} partie(s)…`);
+  try {
+    // Batch delete (500 max per batch)
+    for (let i = 0; i < ids.length; i += 500) {
+      const batch = db.batch();
+      ids.slice(i, i+500).forEach(id => batch.delete(db.collection('games').doc(id)));
+      await batch.commit();
+    }
+    showLog(`✓ ${ids.length} partie${ids.length!==1?'s':''} supprimée${ids.length!==1?'s':''}.`, 'ok');
+    selectedGames.clear();
+    await loadGames();
+  } catch(e) {
+    showLog('Erreur : ' + e.message, 'err');
+    document.getElementById('btnDeleteGames').disabled = false;
+  }
+}
+
+// ════════════════════════════════════════════
+// BADGES TAB
+// ════════════════════════════════════════════
+let badgesData = [];
+let selectedBadges = new Set();
+
+async function loadBadges() {
+  const list = document.getElementById('badgesList');
+  list.innerHTML = '<div class="msg-center">Chargement…</div>';
+  selectedBadges.clear(); updateBadgesUI();
+  try {
+    const snap = await db.collection('badges').orderBy('bestBadge','desc').get();
+    badgesData = [];
+    snap.forEach(doc => badgesData.push({ uid: doc.id, ...doc.data() }));
+    document.getElementById('tabCountBadges').textContent = badgesData.length;
+    renderBadges();
+  } catch(e) {
+    list.innerHTML = `<div class="msg-center">Erreur : ${e.message}</div>`;
+  }
+}
+
+function renderBadges() {
+  const list = document.getElementById('badgesList');
+  if (!badgesData.length) {
+    list.innerHTML = '<div class="msg-center">Aucun badge.</div>';
+    document.getElementById('selLabelBadges').textContent = 'Aucun badge';
+    return;
+  }
+  list.innerHTML = '';
+  badgesData.forEach(b => {
+    const medal = medalClass(b.bestBadge);
+    const updatedAt = b.updatedAt ? b.updatedAt.toMillis() : 0;
+    const row = document.createElement('div');
+    row.className = 'item-row' + (selectedBadges.has(b.uid) ? ' checked' : '');
+    row.dataset.uid = b.uid;
+    row.innerHTML = `
+      <div class="cb"></div>
+      <div class="mini-medal ${medal}">${b.bestBadge}%</div>
+      <div class="item-main">
+        <div class="item-name">${escHtml(b.displayName || 'Joueur')}</div>
+        <div class="item-sub">${escHtml(b.email || '')} · Mis à jour ${fmtDate(updatedAt)}</div>
+      </div>
+      <div class="item-stats">
+        <div class="stat-pill green">
+          <div class="stat-val">${b.bestBadge}%</div>
+          <span class="stat-lbl">meilleur badge</span>
+        </div>
+      </div>`;
+    row.addEventListener('click', () => toggleBadge(b.uid, row));
+    list.appendChild(row);
+  });
+  updateBadgesUI();
+}
+
+function toggleBadge(uid, row) {
+  if (selectedBadges.has(uid)) selectedBadges.delete(uid);
+  else selectedBadges.add(uid);
+  row.classList.toggle('checked', selectedBadges.has(uid));
+  updateBadgesUI();
+}
+
+function toggleAllBadges() {
+  if (selectedBadges.size === badgesData.length) {
+    selectedBadges.clear();
+  } else {
+    badgesData.forEach(b => selectedBadges.add(b.uid));
+  }
+  renderBadges();
+}
+
+function updateBadgesUI() {
+  const n = selectedBadges.size, total = badgesData.length;
+  const btn = document.getElementById('btnDeleteBadges');
+  btn.disabled = n === 0;
+  btn.textContent = n > 0 ? `Réinitialiser (${n})` : 'Réinitialiser la sélection';
+  document.getElementById('selLabelBadges').textContent =
+    total ? `${n} / ${total} sélectionné${n!==1?'s':''}` : 'Aucun badge';
+  document.querySelectorAll('#badgesList .item-row').forEach(row => {
+    row.classList.toggle('checked', selectedBadges.has(row.dataset.uid));
+  });
+}
+
+async function deleteSelectedBadges() {
+  const uids = [...selectedBadges];
+  if (!uids.length) return;
+  const names = uids.map(uid => {
+    const b = badgesData.find(x => x.uid === uid);
+    return b ? (b.displayName || b.email || uid) : uid;
+  });
+  const preview = names.slice(0,3).join(', ') + (names.length > 3 ? `… (+${names.length-3})` : '');
+  if (!confirm(`Réinitialiser ${uids.length} badge${uids.length!==1?'s':''} ?\n\n${preview}\n\nLes comptes ne sont pas supprimés, seulement les scores de badge.`)) return;
+
+  document.getElementById('btnDeleteBadges').disabled = true;
+  showLog(`Réinitialisation de ${uids.length} badge(s)…`);
+  try {
+    for (let i = 0; i < uids.length; i += 500) {
+      const batch = db.batch();
+      uids.slice(i, i+500).forEach(uid => batch.delete(db.collection('badges').doc(uid)));
+      await batch.commit();
+    }
+    showLog(`✓ ${uids.length} badge${uids.length!==1?'s':''} réinitialisé${uids.length!==1?'s':''}.`, 'ok');
+    selectedBadges.clear();
+    await loadBadges();
+  } catch(e) {
+    showLog('Erreur : ' + e.message, 'err');
+    document.getElementById('btnDeleteBadges').disabled = false;
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
