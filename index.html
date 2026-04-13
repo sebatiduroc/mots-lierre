@@ -805,14 +805,8 @@ async function loginGoogle() {
   if (!auth) return;
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile) {
-      await auth.signInWithRedirect(provider);
-      // La page sera rechargée après le redirect — getRedirectResult() gère le retour
-    } else {
-      await auth.signInWithPopup(provider);
-      closeAuthModal();
-    }
+    await auth.signInWithPopup(provider);
+    closeAuthModal();
   } catch(e) {
     showAuthError(e.message);
   }
