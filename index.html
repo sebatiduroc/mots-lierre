@@ -771,8 +771,22 @@ let currentUser = null;
 
 if (auth) {
   auth.onAuthStateChanged(user => {
+    const wasLoggedIn = !!currentUser;
     currentUser = user;
     updateAuthUI();
+
+    if (user) {
+      // Connecté (au démarrage ou connexion en cours d'utilisation)
+      if (!gameActive) {
+        countUnplayedGames().then(count => showUnplayedNotif(count));
+        armNewGamesListener();
+      }
+      // Si une partie est en cours : on ne notifie pas et on n'arme pas le listener —
+      // goHome() s'en chargera au retour.
+    } else {
+      // Déconnexion : couper le listener
+      stopNewGamesListener();
+    }
   });
 
   // Gère le retour après signInWithRedirect (mobile)
@@ -1139,6 +1153,101 @@ let boardAnalysis = null;
 let GAME_DURATION = GAME_DURATION_ANON;
 let currentBestBadge = 0; // badge actuel du joueur connecté
 
+// ── Notifications nouvelles parties ──
+let _newGamesUnsub = null;       // listener Firestore sur les parties actives
+let _newGamesDelta = 0;          // nb de nouvelles parties créées pendant une partie en cours
+let _knownGameIds = null;        // Set des IDs connus au moment d'armer le listener
+
+// ══════════════════════════════════════════════════════════
+// NOTIFICATIONS — nouvelles parties multijoueurs
+// ══════════════════════════════════════════════════════════
+
+// Compte les parties actives non encore jouées par currentUser
+async function countUnplayedGames() {
+  if (!db || !currentUser) return 0;
+  try {
+    const pseudo = currentUser.displayName || currentUser.email || currentUser.uid;
+    const snap = await db.collection('games')
+      .where('expiresAt', '>', Date.now())
+      .get();
+    let count = 0;
+    snap.forEach(doc => {
+      const players = doc.data().players || {};
+      if (players[pseudo]?.score === undefined) count++;
+    });
+    return count;
+  } catch(e) {
+    console.warn('[notif] countUnplayedGames:', e.message);
+    return 0;
+  }
+}
+
+// Affiche une notif "N partie(s) active(s) non jouée(s)"
+function showUnplayedNotif(count) {
+  if (count <= 0) return;
+  const label = count === 1
+    ? '1 partie active non jouée'
+    : `${count} parties actives non jouées`;
+  showNotif(label);
+}
+
+// Affiche une notif delta "N nouvelle(s) partie(s) publiée(s)"
+function showNewGamesNotif(delta) {
+  if (delta <= 0) return;
+  const label = delta === 1
+    ? '1 nouvelle partie publiée'
+    : `${delta} nouvelles parties publiées`;
+  showNotif(label);
+}
+
+// Arme le listener Firestore pour détecter les nouvelles parties créées
+// pendant qu'un joueur connecté est en train de jouer.
+async function armNewGamesListener() {
+  stopNewGamesListener();
+  if (!db || !currentUser) return;
+
+  // Snapshot de référence : IDs des parties actives au moment d'armer
+  try {
+    const snap = await db.collection('games')
+      .where('expiresAt', '>', Date.now())
+      .get();
+    _knownGameIds = new Set(snap.docs.map(d => d.id));
+  } catch(e) {
+    _knownGameIds = new Set();
+  }
+  _newGamesDelta = 0;
+
+  const pseudo = currentUser.displayName || currentUser.email || currentUser.uid;
+
+  _newGamesUnsub = db.collection('games')
+    .where('expiresAt', '>', Date.now())
+    .onSnapshot(snap => {
+      snap.docChanges().forEach(change => {
+        if (change.type !== 'added') return;
+        const id = change.doc.id;
+        if (_knownGameIds.has(id)) return; // partie déjà connue
+        // Ne compter que les parties que ce joueur n'a pas encore jouées
+        const players = change.doc.data().players || {};
+        if (players[pseudo]?.score !== undefined) return;
+        _knownGameIds.add(id);
+        _newGamesDelta++;
+
+        // Si le joueur n'est pas en train de jouer : notif immédiate
+        if (!gameActive) {
+          showNewGamesNotif(_newGamesDelta);
+          _newGamesDelta = 0;
+        }
+        // Sinon : on accumule, la notif sera déclenchée au retour à l'accueil
+      });
+    }, e => console.warn('[notif] listener:', e.message));
+}
+
+function stopNewGamesListener() {
+  if (_newGamesUnsub) { _newGamesUnsub(); _newGamesUnsub = null; }
+  _knownGameIds = null;
+  _newGamesDelta = 0;
+}
+
 // ══════════════════════════════════════════════════════════
 // TRIE — construit en tâche de fond après chargement du dico
 // ══════════════════════════════════════════════════════════
@@ -1477,6 +1586,8 @@ function showHome() {
   document.getElementById('modeBtns').style.display='flex';
   document.getElementById('loadingMsg').style.display='none';
   document.querySelector('.bar-wrap').style.display='none';
+  // Armer le listener nouvelles parties dès qu'on est à l'accueil
+  if (currentUser) armNewGamesListener();
 }
 function showMulti() {
   if (_lobbyTimerInterval) { clearInterval(_lobbyTimerInterval); _lobbyTimerInterval = null; }
@@ -2181,6 +2292,15 @@ function goHome() {
   if (firestoreUnsub) { firestoreUnsub(); firestoreUnsub=null; }
   document.querySelector('.overlay')?.remove();
   hide('gameUI','badgesScreen');
+
+  // Notif delta nouvelles parties si des parties ont été créées pendant la partie
+  if (currentUser && _newGamesDelta > 0) {
+    const delta = _newGamesDelta;
+    _newGamesDelta = 0;
+    // Légère pause pour que l'écran d'accueil soit visible avant la notif
+    setTimeout(() => showNewGamesNotif(delta), 350);
+  }
+
   showHome();
 }
 
