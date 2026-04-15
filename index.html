@@ -452,12 +452,147 @@
     60% { transform:scale(1.03); }
     100%{ opacity:1; transform:scale(1); }
   }
+
+  /* ══ BOUTON AIDE ══ */
+  #btnHelp {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  #btnHelp:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* ══ MODALE AIDE ══ */
+  #helpModal {
+    position: fixed; inset: 0;
+    background: rgba(13,13,15,.94);
+    display: none; align-items: center; justify-content: center;
+    z-index: 980; backdrop-filter: blur(10px);
+    padding: 16px;
+    overflow-y: auto;
+  }
+  .help-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 28px 24px 32px;
+    width: min(92vw, 380px);
+    display: flex; flex-direction: column; gap: 0;
+    position: relative;
+    margin: auto;
+  }
+  .help-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text-dim); font-size: 1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .help-close:hover { border-color: var(--gold); color: var(--gold); }
+  .help-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem; font-weight: 900;
+    color: var(--gold); letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .help-subtitle {
+    font-size: 0.6rem; letter-spacing: 0.2em;
+    color: var(--text-dim); text-transform: uppercase;
+    text-align: center; margin-bottom: 20px;
+  }
+  .help-section {
+    border-top: 1px solid var(--border);
+    padding: 16px 0 4px;
+    margin-bottom: 4px;
+  }
+  .help-section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.95rem; font-weight: 700;
+    color: var(--cream);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .help-section-title .help-icon {
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .help-rule {
+    display: flex; gap: 10px; align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .help-rule-num {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--gold); color: #0d0d0f;
+    font-size: 0.65rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .help-rule-text {
+    font-size: 0.8rem; color: var(--text);
+    line-height: 1.55; font-family: 'DM Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+  .help-rule-text strong { color: var(--cream); }
+  .help-score-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 5px; margin: 10px 0 6px;
+  }
+  .help-score-cell {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 4px;
+    text-align: center;
+  }
+  .help-score-letters {
+    font-size: 0.58rem; color: var(--text-dim);
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .help-score-pts {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem; color: var(--gold);
+    line-height: 1.1;
+  }
+  .help-badge {
+    display: flex; gap: 10px; align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .help-badge-icon { font-size: 1.2rem; flex-shrink: 0; }
+  .help-badge-text {
+    font-size: 0.78rem; color: var(--text);
+    line-height: 1.5; font-family: 'DM Mono', monospace;
+  }
+  .help-badge-text strong { color: var(--gold); }
+  .help-auth-perk {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: rgba(200,169,110,.07);
+    border: 1px solid rgba(200,169,110,.2);
+    border-radius: 9px; padding: 10px 12px;
+    margin-bottom: 7px;
+  }
+  .help-auth-perk-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+  .help-auth-perk-text {
+    font-size: 0.78rem; color: var(--text);
+    line-height: 1.5; font-family: 'DM Mono', monospace;
+  }
+  .help-auth-perk-text strong { color: var(--gold-light); }
 </style>
 </head>
 <body>
 
 <!-- ════ LOADING ════ -->
 <div id="loadingScreen">
+  <button id="btnHelp" title="Comment jouer ?">?</button>
   <h2>Mots-Lierre</h2>
   <div style="font-family:'Playfair Display',serif;font-size:clamp(0.6rem,2.5vw,0.78rem);color:var(--gold);letter-spacing:0.08em;text-align:center;margin-top:-14px;opacity:0.75;">un jeu de Sébastien Dumortier · avril 2026</div>
   <div id="loadingMsg">Chargement du dictionnaire…</div>
@@ -2391,5 +2526,102 @@ if ('serviceWorker' in navigator) {
 }
 loadDictionary();
 </script>
+<!-- ════ MODALE AIDE ════ -->
+<div id="helpModal">
+  <div class="help-box">
+    <button class="help-close" id="btnHelpClose">✕</button>
+
+    <div class="help-title">Comment jouer</div>
+    <div class="help-subtitle">Règles du jeu</div>
+
+    <!-- RÈGLES -->
+    <div class="help-section">
+      <div class="help-section-title"><span class="help-icon">🔤</span> Le principe</div>
+      <div class="help-rule">
+        <div class="help-rule-num">1</div>
+        <div class="help-rule-text">Formez des mots en reliant des lettres <strong>adjacentes</strong> sur la grille (horizontalement, verticalement, ou en diagonale).</div>
+      </div>
+      <div class="help-rule">
+        <div class="help-rule-num">2</div>
+        <div class="help-rule-text">Chaque lettre ne peut être <strong>utilisée qu'une seule fois</strong> par mot.</div>
+      </div>
+      <div class="help-rule">
+        <div class="help-rule-num">3</div>
+        <div class="help-rule-text">Les mots doivent faire <strong>au moins 3 lettres</strong> et appartenir au dictionnaire français.</div>
+      </div>
+      <div class="help-rule">
+        <div class="help-rule-num">4</div>
+        <div class="help-rule-text">Glissez le doigt de lettre en lettre pour former votre mot, puis relâchez pour valider.</div>
+      </div>
+    </div>
+
+    <!-- SCORE -->
+    <div class="help-section">
+      <div class="help-section-title"><span class="help-icon">🏆</span> Points</div>
+      <div class="help-score-grid">
+        <div class="help-score-cell">
+          <div class="help-score-letters">3 lettres</div>
+          <div class="help-score-pts">1 pt</div>
+        </div>
+        <div class="help-score-cell">
+          <div class="help-score-letters">4 lettres</div>
+          <div class="help-score-pts">2 pts</div>
+        </div>
+        <div class="help-score-cell">
+          <div class="help-score-letters">5 lettres</div>
+          <div class="help-score-pts">3 pts</div>
+        </div>
+        <div class="help-score-cell">
+          <div class="help-score-letters">6+ lettres</div>
+          <div class="help-score-pts">+1/lettre</div>
+        </div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-dim);font-family:'DM Mono',monospace;line-height:1.6;margin-top:4px;">
+        En multijoueur, les mots trouvés <strong style="color:var(--red);">uniquement par vous</strong> rapportent des points bonus.
+      </div>
+    </div>
+
+    <!-- CONNEXION -->
+    <div class="help-section">
+      <div class="help-section-title"><span class="help-icon">🔑</span> Avantages du compte</div>
+      <div class="help-auth-perk">
+        <div class="help-auth-perk-icon">📊</div>
+        <div class="help-auth-perk-text"><strong>Classement général</strong> — Vos scores sont enregistrés et vous apparaissez dans le tableau des badges parmi tous les joueurs.</div>
+      </div>
+      <div class="help-auth-perk">
+        <div class="help-auth-perk-icon">⏱️</div>
+        <div class="help-auth-perk-text"><strong>Bonus de temps</strong> — Les joueurs connectés bénéficient de secondes supplémentaires au début de chaque partie.</div>
+      </div>
+      <div class="help-auth-perk">
+        <div class="help-auth-perk-icon">🎮</div>
+        <div class="help-auth-perk-text"><strong>Parties multijoueurs</strong> — Seuls les joueurs connectés peuvent créer une partie et inviter leurs amis.</div>
+      </div>
+    </div>
+
+    <!-- ASTUCE -->
+    <div class="help-section" style="border-bottom:none;padding-bottom:0;">
+      <div class="help-section-title"><span class="help-icon">💡</span> Bon à savoir</div>
+      <div style="font-size:0.78rem;color:var(--text);font-family:'DM Mono',monospace;line-height:1.6;">
+        Pluriels, conjugaisons et féminins sont <strong style="color:var(--cream);">acceptés</strong> ! En revanche, les noms propres et abréviations ne le sont pas.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+document.getElementById('btnHelp').addEventListener('click', () => {
+  document.getElementById('helpModal').style.display = 'flex';
+});
+document.getElementById('btnHelpClose').addEventListener('click', () => {
+  document.getElementById('helpModal').style.display = 'none';
+});
+document.getElementById('helpModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('helpModal')) {
+    document.getElementById('helpModal').style.display = 'none';
+  }
+});
+</script>
+
 </body>
 </html>
