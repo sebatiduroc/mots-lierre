@@ -496,7 +496,8 @@
     <h2 style="margin-bottom:0;">Multijoueurs</h2>
     <button style="padding:8px 16px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold);color:#0d0d0f;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;font-weight:500;" id="btnCreate">+ Nouvelle partie</button>
   </div>
-  <p style="font-size:.55rem;letter-spacing:.18em;color:var(--text-dim);text-transform:uppercase;width:100%;max-width:480px;margin-bottom:12px;">Parties actives — expirent après 72h</p>
+  <p style="font-size:.55rem;letter-spacing:.18em;color:var(--text-dim);text-transform:uppercase;width:100%;max-width:480px;margin-bottom:4px;">Parties actives — expirent après 72h</p>
+  <p id="createAuthHint" style="font-size:.52rem;letter-spacing:.13em;color:var(--text-dim);width:100%;max-width:480px;margin-bottom:10px;display:none;">🔒 Connectez-vous pour créer une partie</p>
   <div id="lobbyList" style="width:100%;max-width:480px;display:flex;flex-direction:column;gap:8px;"><div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:24px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div></div>
 </div>
 
@@ -1600,6 +1601,22 @@ function showMulti() {
   if (_lobbyTimerInterval) { clearInterval(_lobbyTimerInterval); _lobbyTimerInterval = null; }
   hide('loadingScreen','codeScreen','gameUI','badgesScreen');
   show('multiScreen');
+  // Mettre à jour l'état du bouton "Nouvelle partie" selon connexion
+  const btnCreate = document.getElementById('btnCreate');
+  const createAuthHint = document.getElementById('createAuthHint');
+  if (currentUser) {
+    btnCreate.disabled = false;
+    btnCreate.style.opacity = '1';
+    btnCreate.style.cursor = 'pointer';
+    btnCreate.title = '';
+    createAuthHint.style.display = 'none';
+  } else {
+    btnCreate.disabled = false; // on laisse cliquable pour déclencher l'invite
+    btnCreate.style.opacity = '0.45';
+    btnCreate.style.cursor = 'pointer';
+    btnCreate.title = 'Connectez-vous pour créer une partie';
+    createAuthHint.style.display = 'block';
+  }
   loadLobby();
 }
 function showCode() {
@@ -1781,6 +1798,11 @@ async function startSolo() {
 // MULTI — CRÉER
 // ══════════════════════════════════════════════════════════
 async function createGame() {
+  if (!currentUser) {
+    showNotif('Connectez-vous pour créer une partie.', true);
+    openAuthModal();
+    return;
+  }
   if (!db) { showNotif('Firebase non disponible.'); return; }
   goFullscreen();
 
