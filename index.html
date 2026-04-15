@@ -737,7 +737,7 @@ async function loadDictionary() {
   document.querySelector('.bar-wrap').style.display = 'none';
   document.getElementById('modeBtns').style.display = 'flex';
   purgeOldGames();
-  alert('appel buildTrieInWorker');
+  console.log('[DEBUG] appel buildTrieInWorker');
   buildTrieInWorker(dictionary);
 }
 
@@ -1301,7 +1301,7 @@ function buildTrieInWorker(words) {
   trieWorker.onmessage = (e) => {
     if (e.data.type === 'ready') {
       trieRoot = true;
-      alert('worker ready OK');
+      console.log('[DEBUG] worker ready OK');
       if (board.length === 16) analyzeCurrentBoard();
       // Alimente la banque en arrière-plan, sans urgence
       setTimeout(() => refillBankIfNeeded(), 3000);
@@ -1371,12 +1371,12 @@ async function pickBoardFromBank() {
 
 // Vérifie le stock et alimente la banque si nécessaire (en arrière-plan)
 async function refillBankIfNeeded() {
-  alert('refill appelée, db=' + !!db + ' trie=' + !!trieRoot);
+  console.log('[DEBUG] refill appelée, db=' + !!db + ' trie=' + !!trieRoot);
   if (!db || !trieRoot || !trieWorker) return;
   try {
     const snap = await db.collection('boards').limit(BANK_TARGET + 1).get();
     const count = snap.size;
-    alert(`Stock : ${count} grilles`);
+    console.log(`[DEBUG] Stock : ${count} grilles`);
     if (count >= BANK_REFILL_THRESHOLD) return;
     const needed = BANK_TARGET - count;
     const batches = Math.ceil(needed / BANK_BATCH_SIZE);
@@ -1414,7 +1414,7 @@ async function refillBankIfNeeded() {
       await new Promise(r => setTimeout(r, 200));
     }
   } catch(e) {
-    alert('Erreur refill : ' + e.message);
+    console.error('[DEBUG] Erreur refill : ' + e.message);
   }
 }
 
