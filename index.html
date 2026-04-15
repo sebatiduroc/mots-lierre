@@ -442,7 +442,7 @@
 
   .gc-expired { opacity: .55; }
 
-  .notif { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 20px; font-size: .75rem; color: var(--text-dim); letter-spacing: .1em; z-index: 600; animation: notifAnim 1.4s ease-out forwards; pointer-events: none; }
+  .notif { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 20px; font-size: .75rem; color: var(--text-dim); letter-spacing: .1em; z-index: 1100; animation: notifAnim 1.4s ease-out forwards; pointer-events: none; }
   @keyframes notifAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(.9)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-58%) scale(.95)} }
 
   @keyframes fadeInPop {
@@ -739,6 +739,12 @@ async function loadDictionary() {
   purgeOldGames();
   console.log('[DEBUG] appel buildTrieInWorker');
   buildTrieInWorker(dictionary);
+  // Marquer l'app comme prête et déclencher les notifs en attente
+  _appReady = true;
+  if (currentUser) {
+    countUnplayedGames().then(count => showUnplayedNotif(count));
+    armNewGamesListener();
+  }
 }
 
 async function purgeOldGames() {
@@ -777,12 +783,12 @@ if (auth) {
 
     if (user) {
       // Connecté (au démarrage ou connexion en cours d'utilisation)
-      if (!gameActive) {
+      if (!gameActive && _appReady) {
         countUnplayedGames().then(count => showUnplayedNotif(count));
         armNewGamesListener();
       }
-      // Si une partie est en cours : on ne notifie pas et on n'arme pas le listener —
-      // goHome() s'en chargera au retour.
+      // Si app pas encore prête : loadDictionary() déclenchera les notifs au bon moment.
+      // Si une partie est en cours : goHome() s'en chargera au retour.
     } else {
       // Déconnexion : couper le listener
       stopNewGamesListener();
@@ -1157,6 +1163,7 @@ let currentBestBadge = 0; // badge actuel du joueur connecté
 let _newGamesUnsub = null;       // listener Firestore sur les parties actives
 let _newGamesDelta = 0;          // nb de nouvelles parties créées pendant une partie en cours
 let _knownGameIds = null;        // Set des IDs connus au moment d'armer le listener
+let _appReady = false;           // true une fois le dictionnaire chargé et le menu affiché
 
 // ══════════════════════════════════════════════════════════
 // NOTIFICATIONS — nouvelles parties multijoueurs
@@ -1586,8 +1593,6 @@ function showHome() {
   document.getElementById('modeBtns').style.display='flex';
   document.getElementById('loadingMsg').style.display='none';
   document.querySelector('.bar-wrap').style.display='none';
-  // Armer le listener nouvelles parties dès qu'on est à l'accueil
-  if (currentUser) armNewGamesListener();
 }
 function showMulti() {
   if (_lobbyTimerInterval) { clearInterval(_lobbyTimerInterval); _lobbyTimerInterval = null; }
@@ -2297,9 +2302,10 @@ function goHome() {
   if (currentUser && _newGamesDelta > 0) {
     const delta = _newGamesDelta;
     _newGamesDelta = 0;
-    // Légère pause pour que l'écran d'accueil soit visible avant la notif
     setTimeout(() => showNewGamesNotif(delta), 350);
   }
+  // Ré-armer le listener depuis la nouvelle baseline
+  if (currentUser) armNewGamesListener();
 
   showHome();
 }
