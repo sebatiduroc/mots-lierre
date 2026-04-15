@@ -443,7 +443,9 @@
   .gc-expired { opacity: .55; }
 
   .notif { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 20px; font-size: .75rem; color: var(--text-dim); letter-spacing: .1em; z-index: 1100; animation: notifAnim 1.4s ease-out forwards; pointer-events: none; }
+  .notif.notif-alert { border: 2.5px solid #ffe600; color: #ffe600; box-shadow: 0 0 18px rgba(255,230,0,0.25); animation: notifAlertAnim 3s ease-out forwards; }
   @keyframes notifAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(.9)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-58%) scale(.95)} }
+  @keyframes notifAlertAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(.9)} 12%{opacity:1;transform:translate(-50%,-50%) scale(1)} 75%{opacity:1} 100%{opacity:0;transform:translate(-50%,-58%) scale(.95)} }
 
   @keyframes fadeInPop {
     0%  { opacity:0; transform:scale(.88); }
@@ -1195,7 +1197,7 @@ function showUnplayedNotif(count) {
   const label = count === 1
     ? '1 partie active non jouée'
     : `${count} parties actives non jouées`;
-  showNotif(label);
+  showNotif(label, true);
 }
 
 // Affiche une notif delta "N nouvelle(s) partie(s) publiée(s)"
@@ -1204,7 +1206,7 @@ function showNewGamesNotif(delta) {
   const label = delta === 1
     ? '1 nouvelle partie publiée'
     : `${delta} nouvelles parties publiées`;
-  showNotif(label);
+  showNotif(label, true);
 }
 
 // Arme le listener Firestore pour détecter les nouvelles parties créées
@@ -2310,10 +2312,11 @@ function goHome() {
   showHome();
 }
 
-function showNotif(msg) {
+function showNotif(msg, alert=false) {
   document.querySelectorAll('.notif').forEach(n=>n.remove());
-  const n=document.createElement('div'); n.className='notif'; n.textContent=msg;
-  document.body.appendChild(n); setTimeout(()=>n.remove(),1400);
+  const n=document.createElement('div'); n.className='notif'+(alert?' notif-alert':''); n.textContent=msg;
+  const dur = alert ? 3000 : 1400;
+  document.body.appendChild(n); setTimeout(()=>n.remove(),dur);
 }
 
 // ══════════════════════════════════════════════════════════
