@@ -1924,6 +1924,9 @@ async function openPseudoModal(code, players) {
     currentPseudo = pseudo;
     currentMode = 'multi';
     board = data.board;
+    boardAnalysis = (data.wordCount || data.maxScore)
+      ? { wordCount: data.wordCount || 0, maxScore: data.maxScore || 0 }
+      : null;
     launchGame();
     return;
   }
@@ -1951,6 +1954,9 @@ async function confirmJoin() {
   goFullscreen();
   currentGameCode = _joinCode; currentPseudo = pseudo; currentMode = 'multi';
   board = data.board;
+  boardAnalysis = (data.wordCount || data.maxScore)
+    ? { wordCount: data.wordCount || 0, maxScore: data.maxScore || 0 }
+    : null;
   launchGame();
 }
 
@@ -2048,6 +2054,8 @@ async function createGame() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
       expiresAt: Date.now() + MULTI_TTL_MS,
+      wordCount: boardAnalysis ? (boardAnalysis.wordCount || 0) : 0,
+      maxScore: boardAnalysis ? (boardAnalysis.maxScore || 0) : 0,
       players: {}
     });
   } catch(e) { showNotif('Erreur Firebase : ' + e.message); return; }
@@ -2098,7 +2106,11 @@ async function startAsCreator() {
   }
 
   currentPseudo = pseudo; currentMode = 'multi';
-  board = snap.data().board;
+  const gameData = snap.data();
+  board = gameData.board;
+  boardAnalysis = (gameData.wordCount || gameData.maxScore)
+    ? { wordCount: gameData.wordCount || 0, maxScore: gameData.maxScore || 0 }
+    : null;
   launchGame();
 }
 
