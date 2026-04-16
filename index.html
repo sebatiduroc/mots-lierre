@@ -442,7 +442,7 @@
 
   .gc-expired { opacity: .55; }
 
-  .notif { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 20px; font-size: .75rem; color: var(--text-dim); letter-spacing: .1em; z-index: 1100; animation: notifAnim 1.4s ease-out forwards; pointer-events: none; }
+  .notif { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 20px; font-size: .75rem; color: var(--text-dim); letter-spacing: .1em; z-index: 1100; animation: notifAnim 1.4s ease-out forwards; pointer-events: none; text-align: center; }
   .notif.notif-alert { border: 2.5px solid #ffe600; color: #ffe600; box-shadow: 0 0 18px rgba(255,230,0,0.25); animation: notifAlertAnim 3s ease-out forwards; }
   @keyframes notifAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(.9)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-58%) scale(.95)} }
   @keyframes notifAlertAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(.9)} 12%{opacity:1;transform:translate(-50%,-50%) scale(1)} 75%{opacity:1} 100%{opacity:0;transform:translate(-50%,-58%) scale(.95)} }
@@ -2481,9 +2481,10 @@ function showNotif(msg, alert=false) {
 // ══════════════════════════════════════════════════════════
 function attachGridEvents() {
   const c=document.getElementById('gridContainer');
-  c.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];onStart(t.clientX,t.clientY);},{passive:false});
-  c.addEventListener('touchmove', e=>{e.preventDefault();const t=e.touches[0];onMove(t.clientX,t.clientY); },{passive:false});
-  c.addEventListener('touchend',  e=>{e.preventDefault();onEnd();},{passive:false});
+  c.addEventListener('touchstart',  e=>{e.preventDefault();if(isDragging)onEnd();const t=e.touches[0];onStart(t.clientX,t.clientY);},{passive:false});
+  c.addEventListener('touchmove',   e=>{e.preventDefault();const t=e.touches[0];onMove(t.clientX,t.clientY); },{passive:false});
+  c.addEventListener('touchend',    e=>{e.preventDefault();onEnd();},{passive:false});
+  c.addEventListener('touchcancel', e=>{e.preventDefault();onEnd();},{passive:false});
   c.addEventListener('mousedown', e=>onStart(e.clientX,e.clientY));
   window.addEventListener('mousemove',e=>{if(isDragging)onMove(e.clientX,e.clientY);});
   window.addEventListener('mouseup',  ()=>{if(isDragging)onEnd();});
