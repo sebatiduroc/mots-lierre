@@ -588,8 +588,57 @@
     line-height: 1.5; font-family: 'DM Mono', monospace;
   }
   .help-auth-perk-text strong { color: var(--gold-light); }
-</style>
-</head>
+
+  /* ══ ADMIN ══ */
+  .admin-section {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0 14px;
+  }
+  .admin-section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.88rem; font-weight: 700;
+    color: var(--cream); letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .admin-info {
+    font-size: 0.6rem; color: var(--text-dim);
+    letter-spacing: 0.12em; line-height: 1.8;
+    font-family: 'DM Mono', monospace;
+  }
+  .admin-info .hi { color: var(--gold); font-weight: 600; }
+  .admin-info .danger { color: var(--red); }
+  .admin-info .ok { color: var(--green); }
+  .btn-admin-action {
+    padding: 8px 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface2); color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.6rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-admin-action:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-admin-action.danger { border-color: rgba(224,82,82,0.4); color: var(--red); }
+  .btn-admin-action.danger:hover { background: rgba(224,82,82,0.12); }
+  .btn-admin-action.success { border-color: rgba(82,201,122,0.4); color: var(--green); }
+  .btn-admin-action.success:hover { background: rgba(82,201,122,0.1); }
+  .btn-admin-action:disabled { opacity: 0.4; cursor: not-allowed; }
+  .admin-user-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; transition: background .12s;
+  }
+  .admin-user-row:hover { background: rgba(200,169,110,.05); }
+  .admin-user-info { flex: 1; min-width: 0; }
+  .admin-user-name { font-size: 0.72rem; color: var(--cream); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .admin-user-meta { font-size: 0.5rem; color: var(--text-dim); letter-spacing: 0.1em; margin-top: 1px; }
+  .admin-user-badge { font-family:'Playfair Display',serif; font-size:0.9rem; color:var(--gold); flex-shrink:0; min-width:36px; text-align:right; }
+  .admin-user-btns { display:flex; gap:4px; flex-shrink:0; }
+  .btn-admin-user { padding:4px 8px; border-radius:5px; border:1px solid var(--border); background:transparent; cursor:pointer; font-size:0.55rem; letter-spacing:.08em; text-transform:uppercase; font-family:'DM Mono',monospace; color:var(--text-dim); transition:all .12s; white-space:nowrap; }
+  .btn-admin-user:hover { border-color:var(--gold); color:var(--gold); }
+  .btn-admin-user.del:hover { border-color:var(--red); color:var(--red); }
+
 <body>
 
 <!-- ════ LOADING ════ -->
@@ -621,6 +670,7 @@
     <div id="authButtonsConnected" style="display:none; width:100%;">
       <div class="btn-auth-row">
         <button class="btn-auth" id="btnLogout">Déconnexion</button>
+        <button class="btn-auth" id="btnAdmin" style="display:none;border-color:rgba(224,82,82,0.5);color:var(--red);font-weight:600;letter-spacing:0.18em;">⚙ ADMIN</button>
       </div>
     </div>
   </div>
@@ -989,6 +1039,7 @@ function updateAuthUI() {
     btnsAnon.style.display = 'block';
     btnsConn.style.display = 'none';
   }
+  updateAdminButton();
 }
 
 function escHtml(s) {
@@ -2561,9 +2612,402 @@ function showNotif(msg, alert=false) {
   document.body.appendChild(n); setTimeout(()=>n.remove(),dur);
 }
 
+
 // ══════════════════════════════════════════════════════════
-// ÉVÉNEMENTS GRILLE
+// ADMIN — accès restreint à s32.dumortier@gmail.com
 // ══════════════════════════════════════════════════════════
+const ADMIN_EMAIL = 's32.dumortier@gmail.com';
+
+function isAdmin() {
+  return currentUser && currentUser.email === ADMIN_EMAIL;
+}
+
+function adminLog(msg) {
+  const log = document.getElementById('adminLog');
+  if (!log) return;
+  log.style.display = 'block';
+  const ts = new Date().toLocaleTimeString('fr-FR');
+  log.innerHTML += `<div><span style="color:var(--gold)">[${ts}]</span> ${msg}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+
+function adminConfirm(msg) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('adminConfirmModal');
+    document.getElementById('adminConfirmMsg').textContent = msg;
+    modal.style.display = 'flex';
+    const yes = document.getElementById('btnAdminConfirmYes');
+    const no  = document.getElementById('btnAdminConfirmNo');
+    const cleanup = () => { modal.style.display = 'none'; yes.onclick = null; no.onclick = null; };
+    yes.onclick = () => { cleanup(); resolve(true); };
+    no.onclick  = () => { cleanup(); resolve(false); };
+  });
+}
+
+// ── Ouvre / ferme le panneau admin ──
+function openAdminPanel() {
+  if (!isAdmin()) return;
+  document.getElementById('adminModal').style.display = 'flex';
+  document.getElementById('adminLog').innerHTML = '';
+  document.getElementById('adminLog').style.display = 'none';
+  adminRefreshBank();
+  adminRefreshGames();
+  adminRefreshUsers();
+}
+function closeAdminPanel() {
+  document.getElementById('adminModal').style.display = 'none';
+}
+
+// ── Mise à jour du bouton ADMIN selon l'utilisateur connecté ──
+function updateAdminButton() {
+  const btn = document.getElementById('btnAdmin');
+  if (!btn) return;
+  btn.style.display = isAdmin() ? '' : 'none';
+}
+
+// ══ BANQUE DE GRILLES ══
+
+async function adminRefreshBank() {
+  const el = document.getElementById('adminBankStatus');
+  el.innerHTML = 'Chargement…';
+  if (!db) { el.innerHTML = '<span class="danger">Firebase non disponible.</span>'; return; }
+  try {
+    const snap = await db.collection('boards').get();
+    const count = snap.size;
+    const color = count >= 40 ? 'ok' : count >= 20 ? 'hi' : 'danger';
+    el.innerHTML = `Stock actuel : <span class="${color}">${count} grille(s)</span> · Cible : <span class="hi">50</span> · Seuil de rechargement : 40`;
+  } catch(e) { el.innerHTML = `<span class="danger">Erreur : ${e.message}</span>`; }
+}
+
+async function adminClearBank() {
+  const ok = await adminConfirm('Vider toutes les grilles de la banque Firebase ?\nCette action est irréversible.');
+  if (!ok) return;
+  adminLog('Vidage de la banque…');
+  try {
+    let total = 0;
+    while (true) {
+      const snap = await db.collection('boards').limit(100).get();
+      if (snap.empty) break;
+      const batch = db.batch();
+      snap.forEach(doc => { batch.delete(doc.ref); total++; });
+      await batch.commit();
+    }
+    adminLog(`✅ Banque vidée — ${total} grille(s) supprimée(s).`);
+    adminRefreshBank();
+  } catch(e) { adminLog(`❌ Erreur : ${e.message}`); }
+}
+
+async function adminFillBank() {
+  if (!trieRoot || !trieWorker) {
+    adminLog('❌ Le dictionnaire/worker n\'est pas prêt.');
+    return;
+  }
+  const ok = await adminConfirm('Régénérer les 50 grilles dans la banque Firebase ?\nLes grilles existantes seront conservées, seul le manque sera comblé.');
+  if (!ok) return;
+
+  const progress = document.getElementById('adminBankProgress');
+  const progressMsg = document.getElementById('adminBankProgressMsg');
+  const progressBar = document.getElementById('adminBankProgressBar');
+  progress.style.display = 'block';
+
+  try {
+    const snap = await db.collection('boards').get();
+    const existingCount = snap.size;
+    const needed = Math.max(0, 50 - existingCount);
+    adminLog(`Stock actuel : ${existingCount}. À générer : ${needed} grille(s).`);
+
+    if (needed === 0) {
+      progressMsg.textContent = 'Banque déjà complète !';
+      progressBar.style.width = '100%';
+      adminLog('✅ Banque déjà complète (50 grilles).');
+      setTimeout(() => { progress.style.display = 'none'; }, 2000);
+      return;
+    }
+
+    const usedCodes = snap.docs.map(d => d.id);
+    let generated = 0;
+    const batchSize = 8;
+    const batches = Math.ceil(needed / batchSize);
+
+    for (let b = 0; b < batches; b++) {
+      const toGen = Math.min(batchSize, needed - generated);
+      progressMsg.textContent = `Vague ${b+1}/${batches} — génération de ${toGen} grilles…`;
+
+      const results = await new Promise(resolve => {
+        _batchFilterResolve = resolve;
+        trieWorker.postMessage({
+          type: 'batchFilter',
+          min: BOARD_MIN_WORDS, max: BOARD_MAX_WORDS,
+          codeWords: CODE_WORDS,
+          count: toGen,
+          usedCodes: [...usedCodes]
+        });
+      });
+
+      if (!results.length) { adminLog(`⚠️ Vague ${b+1} : aucune grille générée.`); break; }
+
+      const batch = db.batch();
+      for (const r of results) {
+        usedCodes.push(r.code);
+        batch.set(db.collection('boards').doc(r.code), {
+          board: r.board, wordCount: r.wordCount, maxScore: r.maxScore,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      await batch.commit();
+      generated += results.length;
+      progressBar.style.width = Math.round((generated / needed) * 100) + '%';
+      adminLog(`✅ Vague ${b+1}/${batches} : ${results.length} grille(s) ajoutée(s).`);
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    progressMsg.textContent = `Terminé — ${generated} grille(s) ajoutée(s).`;
+    adminLog(`✅ Régénération terminée : ${generated} grille(s) ajoutée(s). Stock total : ~${existingCount + generated}.`);
+    adminRefreshBank();
+    setTimeout(() => { progress.style.display = 'none'; progressBar.style.width = '0%'; }, 3000);
+  } catch(e) {
+    adminLog(`❌ Erreur : ${e.message}`);
+    progress.style.display = 'none';
+  }
+}
+
+// ══ PARTIES MULTIJOUEURS ══
+
+async function adminRefreshGames() {
+  const el = document.getElementById('adminGamesStatus');
+  el.innerHTML = 'Chargement…';
+  if (!db) { el.innerHTML = '<span class="danger">Firebase non disponible.</span>'; return; }
+  try {
+    const now = Date.now();
+    const snap = await db.collection('games').orderBy('createdAt','desc').limit(200).get();
+    let active = 0, expired = 0, totalPlayers = 0;
+    snap.forEach(doc => {
+      const d = doc.data();
+      const exp = d.expiresAt || 0;
+      if (exp > now) { active++; totalPlayers += Object.keys(d.players || {}).length; }
+      else expired++;
+    });
+    el.innerHTML = `Parties actives : <span class="ok">${active}</span> · Expirées : <span class="danger">${expired}</span> · Joueurs (actifs) : <span class="hi">${totalPlayers}</span>`;
+  } catch(e) { el.innerHTML = `<span class="danger">Erreur : ${e.message}</span>`; }
+}
+
+async function adminPurgeExpired() {
+  const ok = await adminConfirm('Supprimer définitivement toutes les parties expirées ?');
+  if (!ok) return;
+  const now = Date.now();
+  adminLog('Purge des parties expirées…');
+  try {
+    let total = 0;
+    const snap = await db.collection('games').orderBy('createdAt','asc').limit(300).get();
+    const batch = db.batch();
+    snap.forEach(doc => {
+      const d = doc.data();
+      const exp = d.expiresAt || 0;
+      if (exp < now) { batch.delete(doc.ref); total++; }
+    });
+    if (total > 0) await batch.commit();
+    adminLog(`✅ ${total} partie(s) expirée(s) supprimée(s).`);
+    adminRefreshGames();
+  } catch(e) { adminLog(`❌ Erreur : ${e.message}`); }
+}
+
+async function adminClearAllGames() {
+  const ok = await adminConfirm('ATTENTION : supprimer TOUTES les parties, actives et expirées ?\nCette action est irréversible et affectera tous les joueurs.');
+  if (!ok) return;
+  adminLog('Suppression de toutes les parties…');
+  try {
+    let total = 0;
+    while (true) {
+      const snap = await db.collection('games').limit(100).get();
+      if (snap.empty) break;
+      const batch = db.batch();
+      snap.forEach(doc => { batch.delete(doc.ref); total++; });
+      await batch.commit();
+    }
+    adminLog(`✅ ${total} partie(s) supprimée(s).`);
+    adminRefreshGames();
+  } catch(e) { adminLog(`❌ Erreur : ${e.message}`); }
+}
+
+// ══ COMPTES UTILISATEURS ══
+
+let _adminEditUid = null;
+
+async function adminRefreshUsers() {
+  const list = document.getElementById('adminUsersList');
+  list.innerHTML = '<div class="admin-info">Chargement…</div>';
+  if (!db) { list.innerHTML = '<div class="admin-info danger">Firebase non disponible.</div>'; return; }
+  try {
+    const [usersSnap, badgesSnap] = await Promise.all([
+      db.collection('users').limit(200).get(),
+      db.collection('badges').limit(200).get()
+    ]);
+
+    const badgeByUid = {};
+    badgesSnap.forEach(doc => { badgeByUid[doc.id] = doc.data().bestBadge || 0; });
+
+    if (usersSnap.empty) {
+      list.innerHTML = '<div class="admin-info">Aucun compte enregistré.</div>';
+      return;
+    }
+
+    const users = [];
+    usersSnap.forEach(doc => {
+      const d = doc.data();
+      users.push({ uid: doc.id, pseudo: d.pseudo || '—', email: d.email || '—', badge: badgeByUid[doc.id] || 0, createdAt: d.createdAt });
+    });
+    users.sort((a, b) => b.badge - a.badge || (a.pseudo || '').localeCompare(b.pseudo || '', 'fr'));
+
+    list.innerHTML = '';
+    users.forEach(u => {
+      const row = document.createElement('div');
+      row.className = 'admin-user-row';
+      const dateStr = u.createdAt ? new Date(u.createdAt.toMillis()).toLocaleDateString('fr-FR') : '?';
+      row.innerHTML = `
+        <div class="admin-user-info">
+          <div class="admin-user-name">${escHtml(u.pseudo)}</div>
+          <div class="admin-user-meta">${escHtml(u.email)} · Créé le ${dateStr}</div>
+        </div>
+        <div class="admin-user-badge">${u.badge ? u.badge + '%' : '—'}</div>
+        <div class="admin-user-btns">
+          <button class="btn-admin-user" data-uid="${u.uid}" data-pseudo="${escHtml(u.pseudo)}" data-badge="${u.badge}" onclick="adminOpenEditBadge(this)">✏ Badge</button>
+          <button class="btn-admin-user del" data-uid="${u.uid}" data-pseudo="${escHtml(u.pseudo)}" onclick="adminDeleteUser(this)">🗑</button>
+        </div>`;
+      list.appendChild(row);
+    });
+  } catch(e) { list.innerHTML = `<div class="admin-info danger">Erreur : ${e.message}</div>`; }
+}
+
+function adminOpenEditBadge(btn) {
+  _adminEditUid = btn.dataset.uid;
+  document.getElementById('adminEditTarget').textContent = btn.dataset.pseudo;
+  document.getElementById('adminEditBadgeVal').value = btn.dataset.badge || '0';
+  document.getElementById('adminEditModal').style.display = 'flex';
+}
+
+async function adminSaveBadge() {
+  if (!_adminEditUid || !db) return;
+  const val = parseInt(document.getElementById('adminEditBadgeVal').value, 10);
+  document.getElementById('adminEditModal').style.display = 'none';
+  try {
+    const ref = db.collection('badges').doc(_adminEditUid);
+    if (val === 0) {
+      await ref.delete();
+      adminLog(`✅ Badge supprimé pour UID ${_adminEditUid}.`);
+    } else {
+      // Lire d'abord pour conserver displayName
+      const snap = await ref.get();
+      const existing = snap.exists ? snap.data() : {};
+      await ref.set({ ...existing, bestBadge: val, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      adminLog(`✅ Badge mis à jour : ${val}% pour UID ${_adminEditUid}.`);
+    }
+    adminRefreshUsers();
+  } catch(e) { adminLog(`❌ Erreur : ${e.message}`); }
+}
+
+async function adminDeleteUser(btn) {
+  const uid = btn.dataset.uid;
+  const pseudo = btn.dataset.pseudo;
+  const ok = await adminConfirm(`Supprimer définitivement le compte de "${pseudo}" ?\n\nCela supprimera ses données Firestore (users, badges). Le compte Firebase Auth devra être supprimé manuellement dans la console Firebase.`);
+  if (!ok) return;
+  adminLog(`Suppression du compte : ${pseudo} (${uid})…`);
+  try {
+    const batch = db.batch();
+    batch.delete(db.collection('users').doc(uid));
+    batch.delete(db.collection('badges').doc(uid));
+    await batch.commit();
+    adminLog(`✅ Compte "${pseudo}" supprimé de Firestore.`);
+    adminLog(`⚠️ Pensez à supprimer le compte Auth dans la console Firebase.`);
+    adminRefreshUsers();
+  } catch(e) { adminLog(`❌ Erreur : ${e.message}`); }
+}
+
+// ══ MAINTENANCE ══
+
+async function adminOrphanBadges() {
+  adminLog('Recherche de badges orphelins…');
+  const el = document.getElementById('adminMaintenanceResult');
+  el.innerHTML = '<div class="admin-info">Analyse…</div>';
+  try {
+    const [usersSnap, badgesSnap] = await Promise.all([
+      db.collection('users').get(),
+      db.collection('badges').get()
+    ]);
+    const userUids = new Set(usersSnap.docs.map(d => d.id));
+    const orphans = badgesSnap.docs.filter(d => !userUids.has(d.id));
+    if (!orphans.length) {
+      adminLog('✅ Aucun badge orphelin trouvé.');
+      el.innerHTML = '<div class="admin-info ok">✅ Aucun badge orphelin.</div>';
+      return;
+    }
+    adminLog(`⚠️ ${orphans.length} badge(s) orphelin(s) trouvé(s).`);
+    const ok = await adminConfirm(`Supprimer ${orphans.length} badge(s) sans compte associé ?`);
+    if (!ok) { el.innerHTML = ''; return; }
+    const batch = db.batch();
+    orphans.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    adminLog(`✅ ${orphans.length} badge(s) orphelin(s) supprimé(s).`);
+    el.innerHTML = `<div class="admin-info ok">✅ ${orphans.length} orphelin(s) supprimé(s).</div>`;
+  } catch(e) { adminLog(`❌ Erreur : ${e.message}`); el.innerHTML = ''; }
+}
+
+async function adminDuplicateCheck() {
+  adminLog('Vérification des doublons de pseudos…');
+  const el = document.getElementById('adminMaintenanceResult');
+  el.innerHTML = '<div class="admin-info">Analyse…</div>';
+  try {
+    const snap = await db.collection('users').get();
+    const pseudos = {};
+    snap.forEach(doc => {
+      const p = (doc.data().pseudo || '').toLowerCase();
+      if (!pseudos[p]) pseudos[p] = [];
+      pseudos[p].push({ uid: doc.id, pseudo: doc.data().pseudo });
+    });
+    const dupes = Object.values(pseudos).filter(arr => arr.length > 1);
+    if (!dupes.length) {
+      adminLog('✅ Aucun doublon de pseudo trouvé.');
+      el.innerHTML = '<div class="admin-info ok">✅ Aucun doublon.</div>';
+    } else {
+      const msg = dupes.map(arr => arr.map(u => u.pseudo + ' (' + u.uid.slice(0,8) + '…)').join(', ')).join(' | ');
+      adminLog(`⚠️ Doublons trouvés : ${msg}`);
+      el.innerHTML = `<div class="admin-info danger">⚠️ ${dupes.length} doublon(s) : ${escHtml(msg)}</div>`;
+    }
+  } catch(e) { adminLog(`❌ Erreur : ${e.message}`); el.innerHTML = ''; }
+}
+
+async function adminDbStats() {
+  adminLog('Calcul des statistiques de la base…');
+  const el = document.getElementById('adminMaintenanceResult');
+  el.innerHTML = '<div class="admin-info">Analyse…</div>';
+  try {
+    const [usersSnap, badgesSnap, gamesSnap, boardsSnap] = await Promise.all([
+      db.collection('users').get(),
+      db.collection('badges').get(),
+      db.collection('games').get(),
+      db.collection('boards').get()
+    ]);
+    const now = Date.now();
+    let activeGames = 0, totalScores = 0;
+    gamesSnap.forEach(doc => {
+      const d = doc.data();
+      if ((d.expiresAt || 0) > now) { activeGames++; }
+      Object.values(d.players || {}).forEach(p => { if (p.score !== undefined) totalScores++; });
+    });
+    const html = `
+      <div class="admin-info">
+        👤 Comptes : <span class="hi">${usersSnap.size}</span> &nbsp;|&nbsp;
+        🏅 Badges : <span class="hi">${badgesSnap.size}</span> &nbsp;|&nbsp;
+        🎮 Parties (total) : <span class="hi">${gamesSnap.size}</span><br>
+        🎮 Parties actives : <span class="ok">${activeGames}</span> &nbsp;|&nbsp;
+        📝 Scores joués : <span class="hi">${totalScores}</span> &nbsp;|&nbsp;
+        🗃 Grilles en banque : <span class="${boardsSnap.size >= 40 ? 'ok' : 'danger'}">${boardsSnap.size}</span>
+      </div>`;
+    el.innerHTML = html;
+    adminLog(`✅ Stats : ${usersSnap.size} comptes, ${badgesSnap.size} badges, ${gamesSnap.size} parties, ${boardsSnap.size} grilles en banque.`);
+  } catch(e) { adminLog(`❌ Erreur : ${e.message}`); el.innerHTML = ''; }
+}
+
+
 function attachGridEvents() {
   const c=document.getElementById('gridContainer');
   c.addEventListener('touchstart',  e=>{e.preventDefault();if(isDragging)onEnd();const t=e.touches[0];onStart(t.clientX,t.clientY);},{passive:false});
@@ -2601,6 +3045,24 @@ document.getElementById('btnModalEmailRegister').addEventListener('click', regis
 document.getElementById('btnAuthModalClose').addEventListener('click', closeAuthModal);
 document.getElementById('authPassword').addEventListener('keydown', e=>{ if(e.key==='Enter') loginEmail(); });
 
+// Admin buttons
+document.getElementById('btnAdmin').addEventListener('click', openAdminPanel);
+document.getElementById('btnAdminClose').addEventListener('click', closeAdminPanel);
+document.getElementById('btnAdminRefreshBank').addEventListener('click', adminRefreshBank);
+document.getElementById('btnAdminClearBank').addEventListener('click', adminClearBank);
+document.getElementById('btnAdminFillBank').addEventListener('click', adminFillBank);
+document.getElementById('btnAdminRefreshGames').addEventListener('click', adminRefreshGames);
+document.getElementById('btnAdminPurgeExpired').addEventListener('click', adminPurgeExpired);
+document.getElementById('btnAdminClearAllGames').addEventListener('click', adminClearAllGames);
+document.getElementById('btnAdminRefreshUsers').addEventListener('click', adminRefreshUsers);
+document.getElementById('btnAdminOrphanBadges').addEventListener('click', adminOrphanBadges);
+document.getElementById('btnAdminDuplicateCheck').addEventListener('click', adminDuplicateCheck);
+document.getElementById('btnAdminDbStats').addEventListener('click', adminDbStats);
+document.getElementById('btnAdminEditConfirm').addEventListener('click', adminSaveBadge);
+document.getElementById('btnAdminEditCancel').addEventListener('click', () => { document.getElementById('adminEditModal').style.display='none'; });
+document.getElementById('btnAdminConfirmYes').addEventListener('click', () => {});
+document.getElementById('btnAdminConfirmNo').addEventListener('click', () => { document.getElementById('adminConfirmModal').style.display='none'; });
+
 // ══════════════════════════════════════════════════════════
 // BOOT
 // ══════════════════════════════════════════════════════════
@@ -2612,7 +3074,103 @@ if ('serviceWorker' in navigator) {
 }
 loadDictionary();
 </script>
-<!-- ════ MODALE AIDE ════ -->
+<!-- ════ ADMIN MODAL ════ -->
+<div id="adminModal" style="position:fixed;inset:0;background:rgba(13,13,15,.96);display:none;align-items:flex-start;justify-content:center;z-index:990;backdrop-filter:blur(12px);overflow-y:auto;padding:24px 16px 48px;">
+  <div style="background:var(--surface);border:1.5px solid rgba(224,82,82,0.4);border-radius:18px;padding:28px 22px;width:min(96vw,520px);display:flex;flex-direction:column;gap:0;position:relative;margin:auto;">
+    <button id="btnAdminClose" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-dim);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;">✕</button>
+
+    <div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--red);letter-spacing:0.1em;text-transform:uppercase;text-align:center;margin-bottom:4px;">⚙ Administration</div>
+    <div style="font-size:0.52rem;letter-spacing:0.2em;color:var(--text-dim);text-transform:uppercase;text-align:center;margin-bottom:20px;">Mots-Lierre · Accès restreint</div>
+
+    <!-- SECTION : Banque de grilles -->
+    <div class="admin-section">
+      <div class="admin-section-title">🗃 Banque de grilles</div>
+      <div id="adminBankStatus" class="admin-info">Chargement…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button class="btn-admin-action" id="btnAdminRefreshBank">↻ Actualiser le stock</button>
+        <button class="btn-admin-action danger" id="btnAdminClearBank">🗑 Vider la banque</button>
+        <button class="btn-admin-action success" id="btnAdminFillBank">⚡ Régénérer les 50 grilles</button>
+      </div>
+      <div id="adminBankProgress" style="display:none;margin-top:10px;">
+        <div style="font-size:0.58rem;letter-spacing:0.15em;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;" id="adminBankProgressMsg">Génération en cours…</div>
+        <div style="width:100%;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;"><div id="adminBankProgressBar" style="height:100%;width:0%;background:var(--green);border-radius:2px;transition:width .3s ease;"></div></div>
+      </div>
+    </div>
+
+    <!-- SECTION : Parties multijoueurs -->
+    <div class="admin-section">
+      <div class="admin-section-title">🎮 Parties multijoueurs</div>
+      <div id="adminGamesStatus" class="admin-info">Chargement…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button class="btn-admin-action" id="btnAdminRefreshGames">↻ Actualiser</button>
+        <button class="btn-admin-action danger" id="btnAdminPurgeExpired">🧹 Purger les expirées</button>
+        <button class="btn-admin-action danger" id="btnAdminClearAllGames">🗑 Vider toutes les parties</button>
+      </div>
+    </div>
+
+    <!-- SECTION : Comptes utilisateurs -->
+    <div class="admin-section">
+      <div class="admin-section-title">👤 Gestion des comptes</div>
+      <div id="adminUsersList" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;margin-top:8px;">
+        <div class="admin-info">Chargement…</div>
+      </div>
+      <div style="margin-top:10px;">
+        <button class="btn-admin-action" id="btnAdminRefreshUsers">↻ Actualiser les comptes</button>
+      </div>
+    </div>
+
+    <!-- SECTION : Nettoyage base -->
+    <div class="admin-section" style="border-bottom:none;">
+      <div class="admin-section-title">🔧 Nettoyage & maintenance</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+        <button class="btn-admin-action" id="btnAdminOrphanBadges">🔍 Badges orphelins</button>
+        <button class="btn-admin-action" id="btnAdminDuplicateCheck">🔍 Doublons de scores</button>
+        <button class="btn-admin-action" id="btnAdminDbStats">📊 Stats de la base</button>
+      </div>
+      <div id="adminMaintenanceResult" style="margin-top:8px;"></div>
+    </div>
+
+    <div id="adminLog" style="margin-top:16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.58rem;color:var(--text-dim);letter-spacing:0.08em;line-height:1.8;max-height:120px;overflow-y:auto;font-family:'DM Mono',monospace;display:none;"></div>
+  </div>
+</div>
+
+<!-- ADMIN : modal modification badge -->
+<div id="adminEditModal" style="position:fixed;inset:0;background:rgba(13,13,15,.92);display:none;align-items:center;justify-content:center;z-index:995;backdrop-filter:blur(8px);">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px 22px;width:min(88vw,320px);display:flex;flex-direction:column;gap:12px;align-items:center;">
+    <div style="font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--gold);letter-spacing:.08em;text-align:center;">Modifier le badge</div>
+    <div id="adminEditTarget" style="font-size:0.65rem;color:var(--text-dim);letter-spacing:.15em;text-transform:uppercase;text-align:center;"></div>
+    <select id="adminEditBadgeVal" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--cream);font-family:'DM Mono',monospace;font-size:0.85rem;letter-spacing:.1em;outline:none;cursor:pointer;">
+      <option value="0">— Aucun badge —</option>
+      <option value="10">10%</option><option value="20">20%</option><option value="30">30%</option>
+      <option value="40">40%</option><option value="50">50%</option><option value="60">60%</option>
+      <option value="65">65%</option><option value="70">70%</option><option value="75">75%</option>
+      <option value="80">80%</option><option value="85">85%</option><option value="90">90%</option>
+      <option value="91">91%</option><option value="92">92%</option><option value="93">93%</option>
+      <option value="94">94%</option><option value="95">95%</option><option value="96">96%</option>
+      <option value="97">97%</option><option value="98">98%</option><option value="99">99%</option>
+      <option value="100">100%</option>
+    </select>
+    <div style="font-size:0.55rem;color:var(--text-dim);letter-spacing:.12em;text-align:center;line-height:1.7;">Mettre à 0 pour supprimer le badge.</div>
+    <div style="display:flex;gap:8px;width:100%;">
+      <button id="btnAdminEditCancel" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;">Annuler</button>
+      <button id="btnAdminEditConfirm" style="flex:2;padding:10px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold);color:#0d0d0f;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-weight:500;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN : modal confirmation destructive -->
+<div id="adminConfirmModal" style="position:fixed;inset:0;background:rgba(13,13,15,.92);display:none;align-items:center;justify-content:center;z-index:996;backdrop-filter:blur(8px);">
+  <div style="background:var(--surface);border:1.5px solid rgba(224,82,82,0.5);border-radius:14px;padding:26px 22px;width:min(88vw,320px);display:flex;flex-direction:column;gap:14px;align-items:center;">
+    <div style="font-size:2rem;">⚠️</div>
+    <div id="adminConfirmMsg" style="font-size:0.78rem;color:var(--cream);letter-spacing:.05em;text-align:center;line-height:1.7;font-family:'DM Mono',monospace;"></div>
+    <div style="display:flex;gap:8px;width:100%;">
+      <button id="btnAdminConfirmNo" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;">Annuler</button>
+      <button id="btnAdminConfirmYes" style="flex:2;padding:10px;border:1.5px solid var(--red);border-radius:8px;background:var(--red);color:#fff;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-weight:500;">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+
 <div id="helpModal">
   <div class="help-box">
     <button class="help-close" id="btnHelpClose">✕</button>
