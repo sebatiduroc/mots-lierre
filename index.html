@@ -430,7 +430,8 @@
   .gc-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
   .gc-code { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--gold-light); letter-spacing: .1em; }
   .gc-expires { font-size: .72rem; color: var(--gold); letter-spacing: .08em; font-variant-numeric: tabular-nums; opacity: .85; }
-  .gc-total-words { font-size: .62rem; color: var(--text-dim); letter-spacing: .08em; text-align: center; }
+  .gc-total-words { font-size: .62rem; color: #ffe600; letter-spacing: .08em; text-align: center; font-weight: 500; }
+  .gc-remaining-words { font-size: .62rem; color: #ffe600; letter-spacing: .08em; text-align: center; font-weight: 500; margin-top: 2px; }
   .gc-players { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
   .gc-player-row { display: flex; justify-content: space-between; align-items: center; font-size: .64rem; padding: 3px 0; border-bottom: 1px solid var(--border); }
   .gc-player-row:last-child { border-bottom: none; }
@@ -1814,7 +1815,10 @@ async function loadLobby() {
       card.innerHTML = `
         <div class="gc-top">
           <span class="gc-code">${g.code}</span>
-          <span class="gc-total-words">${totalUniqueWords} mot${totalUniqueWords !== 1 ? 's' : ''} trouvés</span>
+          <span style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span class="gc-total-words">${totalUniqueWords} mot${totalUniqueWords !== 1 ? 's' : ''} trouvés</span>
+            ${g.wordCount ? `<span class="gc-remaining-words">${Math.max(0, g.wordCount - totalUniqueWords)} mot${Math.max(0, g.wordCount - totalUniqueWords) !== 1 ? 's' : ''} restants</span>` : ''}
+          </span>
           <span class="gc-expires" data-expires="${g.expiresAt}">${fmtCountdown(g.expiresAt - now)}</span>
         </div>
         <div class="gc-players">${playersHtml}</div>
