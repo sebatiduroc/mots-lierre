@@ -794,6 +794,104 @@
 </div>
 
 
+
+<!-- ════ ADMIN MODAL ════ -->
+<div id="adminModal" style="position:fixed;inset:0;background:rgba(13,13,15,.96);display:none;align-items:flex-start;justify-content:center;z-index:990;backdrop-filter:blur(12px);overflow-y:auto;padding:24px 16px 48px;">
+  <div style="background:var(--surface);border:1.5px solid rgba(224,82,82,0.4);border-radius:18px;padding:28px 22px;width:min(96vw,520px);display:flex;flex-direction:column;gap:0;position:relative;margin:auto;">
+    <button id="btnAdminClose" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-dim);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;">✕</button>
+
+    <div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--red);letter-spacing:0.1em;text-transform:uppercase;text-align:center;margin-bottom:4px;">⚙ Administration</div>
+    <div style="font-size:0.52rem;letter-spacing:0.2em;color:var(--text-dim);text-transform:uppercase;text-align:center;margin-bottom:20px;">Mots-Lierre · Accès restreint</div>
+
+    <!-- SECTION : Banque de grilles -->
+    <div class="admin-section">
+      <div class="admin-section-title">🗃 Banque de grilles</div>
+      <div id="adminBankStatus" class="admin-info">Chargement…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button class="btn-admin-action" id="btnAdminRefreshBank">↻ Actualiser le stock</button>
+        <button class="btn-admin-action danger" id="btnAdminClearBank">🗑 Vider la banque</button>
+        <button class="btn-admin-action success" id="btnAdminFillBank">⚡ Régénérer les 50 grilles</button>
+      </div>
+      <div id="adminBankProgress" style="display:none;margin-top:10px;">
+        <div style="font-size:0.58rem;letter-spacing:0.15em;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;" id="adminBankProgressMsg">Génération en cours…</div>
+        <div style="width:100%;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;"><div id="adminBankProgressBar" style="height:100%;width:0%;background:var(--green);border-radius:2px;transition:width .3s ease;"></div></div>
+      </div>
+    </div>
+
+    <!-- SECTION : Parties multijoueurs -->
+    <div class="admin-section">
+      <div class="admin-section-title">🎮 Parties multijoueurs</div>
+      <div id="adminGamesStatus" class="admin-info">Chargement…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button class="btn-admin-action" id="btnAdminRefreshGames">↻ Actualiser</button>
+        <button class="btn-admin-action danger" id="btnAdminPurgeExpired">🧹 Purger les expirées</button>
+        <button class="btn-admin-action danger" id="btnAdminClearAllGames">🗑 Vider toutes les parties</button>
+      </div>
+    </div>
+
+    <!-- SECTION : Comptes utilisateurs -->
+    <div class="admin-section">
+      <div class="admin-section-title">👤 Gestion des comptes</div>
+      <div id="adminUsersList" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;margin-top:8px;">
+        <div class="admin-info">Chargement…</div>
+      </div>
+      <div style="margin-top:10px;">
+        <button class="btn-admin-action" id="btnAdminRefreshUsers">↻ Actualiser les comptes</button>
+      </div>
+    </div>
+
+    <!-- SECTION : Nettoyage base -->
+    <div class="admin-section" style="border-bottom:none;">
+      <div class="admin-section-title">🔧 Nettoyage & maintenance</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+        <button class="btn-admin-action" id="btnAdminOrphanBadges">🔍 Badges orphelins</button>
+        <button class="btn-admin-action" id="btnAdminDuplicateCheck">🔍 Doublons de scores</button>
+        <button class="btn-admin-action" id="btnAdminDbStats">📊 Stats de la base</button>
+      </div>
+      <div id="adminMaintenanceResult" style="margin-top:8px;"></div>
+    </div>
+
+    <div id="adminLog" style="margin-top:16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.58rem;color:var(--text-dim);letter-spacing:0.08em;line-height:1.8;max-height:120px;overflow-y:auto;font-family:'DM Mono',monospace;display:none;"></div>
+  </div>
+</div>
+
+<!-- ADMIN : modal modification badge -->
+<div id="adminEditModal" style="position:fixed;inset:0;background:rgba(13,13,15,.92);display:none;align-items:center;justify-content:center;z-index:995;backdrop-filter:blur(8px);">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px 22px;width:min(88vw,320px);display:flex;flex-direction:column;gap:12px;align-items:center;">
+    <div style="font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--gold);letter-spacing:.08em;text-align:center;">Modifier le badge</div>
+    <div id="adminEditTarget" style="font-size:0.65rem;color:var(--text-dim);letter-spacing:.15em;text-transform:uppercase;text-align:center;"></div>
+    <select id="adminEditBadgeVal" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--cream);font-family:'DM Mono',monospace;font-size:0.85rem;letter-spacing:.1em;outline:none;cursor:pointer;">
+      <option value="0">— Aucun badge —</option>
+      <option value="10">10%</option><option value="20">20%</option><option value="30">30%</option>
+      <option value="40">40%</option><option value="50">50%</option><option value="60">60%</option>
+      <option value="65">65%</option><option value="70">70%</option><option value="75">75%</option>
+      <option value="80">80%</option><option value="85">85%</option><option value="90">90%</option>
+      <option value="91">91%</option><option value="92">92%</option><option value="93">93%</option>
+      <option value="94">94%</option><option value="95">95%</option><option value="96">96%</option>
+      <option value="97">97%</option><option value="98">98%</option><option value="99">99%</option>
+      <option value="100">100%</option>
+    </select>
+    <div style="font-size:0.55rem;color:var(--text-dim);letter-spacing:.12em;text-align:center;line-height:1.7;">Mettre à 0 pour supprimer le badge.</div>
+    <div style="display:flex;gap:8px;width:100%;">
+      <button id="btnAdminEditCancel" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;">Annuler</button>
+      <button id="btnAdminEditConfirm" style="flex:2;padding:10px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold);color:#0d0d0f;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-weight:500;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN : modal confirmation destructive -->
+<div id="adminConfirmModal" style="position:fixed;inset:0;background:rgba(13,13,15,.92);display:none;align-items:center;justify-content:center;z-index:996;backdrop-filter:blur(8px);">
+  <div style="background:var(--surface);border:1.5px solid rgba(224,82,82,0.5);border-radius:14px;padding:26px 22px;width:min(88vw,320px);display:flex;flex-direction:column;gap:14px;align-items:center;">
+    <div style="font-size:2rem;">⚠️</div>
+    <div id="adminConfirmMsg" style="font-size:0.78rem;color:var(--cream);letter-spacing:.05em;text-align:center;line-height:1.7;font-family:'DM Mono',monospace;"></div>
+    <div style="display:flex;gap:8px;width:100%;">
+      <button id="btnAdminConfirmNo" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;">Annuler</button>
+      <button id="btnAdminConfirmYes" style="flex:2;padding:10px;border:1.5px solid var(--red);border-radius:8px;background:var(--red);color:#fff;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-weight:500;">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -3074,102 +3172,6 @@ if ('serviceWorker' in navigator) {
 }
 loadDictionary();
 </script>
-<!-- ════ ADMIN MODAL ════ -->
-<div id="adminModal" style="position:fixed;inset:0;background:rgba(13,13,15,.96);display:none;align-items:flex-start;justify-content:center;z-index:990;backdrop-filter:blur(12px);overflow-y:auto;padding:24px 16px 48px;">
-  <div style="background:var(--surface);border:1.5px solid rgba(224,82,82,0.4);border-radius:18px;padding:28px 22px;width:min(96vw,520px);display:flex;flex-direction:column;gap:0;position:relative;margin:auto;">
-    <button id="btnAdminClose" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-dim);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;">✕</button>
-
-    <div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--red);letter-spacing:0.1em;text-transform:uppercase;text-align:center;margin-bottom:4px;">⚙ Administration</div>
-    <div style="font-size:0.52rem;letter-spacing:0.2em;color:var(--text-dim);text-transform:uppercase;text-align:center;margin-bottom:20px;">Mots-Lierre · Accès restreint</div>
-
-    <!-- SECTION : Banque de grilles -->
-    <div class="admin-section">
-      <div class="admin-section-title">🗃 Banque de grilles</div>
-      <div id="adminBankStatus" class="admin-info">Chargement…</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-        <button class="btn-admin-action" id="btnAdminRefreshBank">↻ Actualiser le stock</button>
-        <button class="btn-admin-action danger" id="btnAdminClearBank">🗑 Vider la banque</button>
-        <button class="btn-admin-action success" id="btnAdminFillBank">⚡ Régénérer les 50 grilles</button>
-      </div>
-      <div id="adminBankProgress" style="display:none;margin-top:10px;">
-        <div style="font-size:0.58rem;letter-spacing:0.15em;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;" id="adminBankProgressMsg">Génération en cours…</div>
-        <div style="width:100%;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;"><div id="adminBankProgressBar" style="height:100%;width:0%;background:var(--green);border-radius:2px;transition:width .3s ease;"></div></div>
-      </div>
-    </div>
-
-    <!-- SECTION : Parties multijoueurs -->
-    <div class="admin-section">
-      <div class="admin-section-title">🎮 Parties multijoueurs</div>
-      <div id="adminGamesStatus" class="admin-info">Chargement…</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-        <button class="btn-admin-action" id="btnAdminRefreshGames">↻ Actualiser</button>
-        <button class="btn-admin-action danger" id="btnAdminPurgeExpired">🧹 Purger les expirées</button>
-        <button class="btn-admin-action danger" id="btnAdminClearAllGames">🗑 Vider toutes les parties</button>
-      </div>
-    </div>
-
-    <!-- SECTION : Comptes utilisateurs -->
-    <div class="admin-section">
-      <div class="admin-section-title">👤 Gestion des comptes</div>
-      <div id="adminUsersList" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;margin-top:8px;">
-        <div class="admin-info">Chargement…</div>
-      </div>
-      <div style="margin-top:10px;">
-        <button class="btn-admin-action" id="btnAdminRefreshUsers">↻ Actualiser les comptes</button>
-      </div>
-    </div>
-
-    <!-- SECTION : Nettoyage base -->
-    <div class="admin-section" style="border-bottom:none;">
-      <div class="admin-section-title">🔧 Nettoyage & maintenance</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-        <button class="btn-admin-action" id="btnAdminOrphanBadges">🔍 Badges orphelins</button>
-        <button class="btn-admin-action" id="btnAdminDuplicateCheck">🔍 Doublons de scores</button>
-        <button class="btn-admin-action" id="btnAdminDbStats">📊 Stats de la base</button>
-      </div>
-      <div id="adminMaintenanceResult" style="margin-top:8px;"></div>
-    </div>
-
-    <div id="adminLog" style="margin-top:16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.58rem;color:var(--text-dim);letter-spacing:0.08em;line-height:1.8;max-height:120px;overflow-y:auto;font-family:'DM Mono',monospace;display:none;"></div>
-  </div>
-</div>
-
-<!-- ADMIN : modal modification badge -->
-<div id="adminEditModal" style="position:fixed;inset:0;background:rgba(13,13,15,.92);display:none;align-items:center;justify-content:center;z-index:995;backdrop-filter:blur(8px);">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px 22px;width:min(88vw,320px);display:flex;flex-direction:column;gap:12px;align-items:center;">
-    <div style="font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--gold);letter-spacing:.08em;text-align:center;">Modifier le badge</div>
-    <div id="adminEditTarget" style="font-size:0.65rem;color:var(--text-dim);letter-spacing:.15em;text-transform:uppercase;text-align:center;"></div>
-    <select id="adminEditBadgeVal" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--cream);font-family:'DM Mono',monospace;font-size:0.85rem;letter-spacing:.1em;outline:none;cursor:pointer;">
-      <option value="0">— Aucun badge —</option>
-      <option value="10">10%</option><option value="20">20%</option><option value="30">30%</option>
-      <option value="40">40%</option><option value="50">50%</option><option value="60">60%</option>
-      <option value="65">65%</option><option value="70">70%</option><option value="75">75%</option>
-      <option value="80">80%</option><option value="85">85%</option><option value="90">90%</option>
-      <option value="91">91%</option><option value="92">92%</option><option value="93">93%</option>
-      <option value="94">94%</option><option value="95">95%</option><option value="96">96%</option>
-      <option value="97">97%</option><option value="98">98%</option><option value="99">99%</option>
-      <option value="100">100%</option>
-    </select>
-    <div style="font-size:0.55rem;color:var(--text-dim);letter-spacing:.12em;text-align:center;line-height:1.7;">Mettre à 0 pour supprimer le badge.</div>
-    <div style="display:flex;gap:8px;width:100%;">
-      <button id="btnAdminEditCancel" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;">Annuler</button>
-      <button id="btnAdminEditConfirm" style="flex:2;padding:10px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold);color:#0d0d0f;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-weight:500;">Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ADMIN : modal confirmation destructive -->
-<div id="adminConfirmModal" style="position:fixed;inset:0;background:rgba(13,13,15,.92);display:none;align-items:center;justify-content:center;z-index:996;backdrop-filter:blur(8px);">
-  <div style="background:var(--surface);border:1.5px solid rgba(224,82,82,0.5);border-radius:14px;padding:26px 22px;width:min(88vw,320px);display:flex;flex-direction:column;gap:14px;align-items:center;">
-    <div style="font-size:2rem;">⚠️</div>
-    <div id="adminConfirmMsg" style="font-size:0.78rem;color:var(--cream);letter-spacing:.05em;text-align:center;line-height:1.7;font-family:'DM Mono',monospace;"></div>
-    <div style="display:flex;gap:8px;width:100%;">
-      <button id="btnAdminConfirmNo" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;">Annuler</button>
-      <button id="btnAdminConfirmYes" style="flex:2;padding:10px;border:1.5px solid var(--red);border-radius:8px;background:var(--red);color:#fff;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-weight:500;">Confirmer</button>
-    </div>
-  </div>
-</div>
-
 
 <div id="helpModal">
   <div class="help-box">
