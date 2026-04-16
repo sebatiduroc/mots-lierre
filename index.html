@@ -1835,7 +1835,7 @@ async function generateCode() {
       if (!snap.exists) return code;
       const d = snap.data();
       const ts = d.createdAt ? d.createdAt.toMillis() : (d.createdAtMs || 0);
-     
+      if (Date.now() - ts > WEEK_MS) return code;
     } catch(e) { return code; }
   }
   const w = CODE_WORDS[Math.floor(Math.random() * CODE_WORDS.length)];
@@ -1908,7 +1908,7 @@ async function loadLobby() {
     snap.forEach(doc => {
       const d = doc.data();
       const ts = d.createdAt ? d.createdAt.toMillis() : (d.createdAtMs || 0);
-      
+      if (ts && (now - ts) < WEEK_MS) games.push({ code: doc.id, ...d });
     });
     if (!games.length) {
       list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.1em;">Aucune partie.<br>Créez-en une !</div>';
