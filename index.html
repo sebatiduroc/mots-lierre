@@ -295,6 +295,7 @@
     letter-spacing: 0.08em; text-transform: uppercase; line-height: 1;
   }
   #dictInfo { font-size: 0.5rem; color: var(--text-dim); letter-spacing: 0.1em; }
+  #dictInfo.game-mode { color: var(--gold-light); }
   #authorInfo { font-size: 0.5rem; color: var(--gold); letter-spacing: 0.1em; }
   #multiInfo { font-size: 0.52rem; color: var(--gold-light); letter-spacing: 0.12em; display: none; }
 
@@ -875,7 +876,6 @@ async function loadDictionary() {
   document.querySelector('.bar-wrap').style.display = 'none';
   document.getElementById('modeBtns').style.display = 'flex';
   purgeOldGames();
-  console.log('[DEBUG] appel buildTrieInWorker');
   buildTrieInWorker(dictionary);
   // Marquer l'app comme prête et déclencher les notifs en attente
   _appReady = true;
@@ -1555,7 +1555,6 @@ function buildTrieInWorker(words) {
   trieWorker.onmessage = (e) => {
     if (e.data.type === 'ready') {
       trieRoot = true;
-      console.log('[DEBUG] worker ready OK');
       if (board.length === 16) analyzeCurrentBoard();
       // Alimente la banque en arrière-plan, sans urgence
       setTimeout(() => refillBankIfNeeded(), 3000);
@@ -1587,7 +1586,11 @@ function analyzeCurrentBoard() {
 function showBoardAnalysis() {
   const el = document.getElementById('countdownAnalysis');
   if (!el || !boardAnalysis) return;
-  el.textContent = `${boardAnalysis.wordCount} mot${boardAnalysis.wordCount!==1?'s':''} possibles · max ${boardAnalysis.maxScore} pt${boardAnalysis.maxScore!==1?'s':''}`;
+  const txt = `${boardAnalysis.wordCount} mot${boardAnalysis.wordCount!==1?'s':''} possibles · max ${boardAnalysis.maxScore} pt${boardAnalysis.maxScore!==1?'s':''}`;
+  el.textContent = txt;
+  const dictEl = document.getElementById('dictInfo');
+  dictEl.textContent = txt;
+  dictEl.classList.add('game-mode');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1595,8 +1598,9 @@ function showBoardAnalysis() {
 // ══════════════════════════════════════════════════════════
 
 // Pioche une grille dans la banque (transaction atomique) et la supprime
-async function pickBoardFromBank() {
+async function pickBoardFromBank(attempt = 0) {
   if (!db) return null;
+  if (attempt >= 5) return null;
   try {
     // Récupère les 5 plus anciennes grilles disponibles, en choisit une au hasard
     const snap = await db.collection('boards').orderBy('createdAt', 'asc').limit(5).get();
@@ -1613,7 +1617,7 @@ async function pickBoardFromBank() {
     });
     if (!deleted) {
       // Rare cas de conflit : réessai récursif
-      return pickBoardFromBank();
+      return pickBoardFromBank(attempt + 1);
     }
     console.log(`[bank] Grille récupérée : ${chosen.id} (${deleted.wordCount} mots, max ${deleted.maxScore} pts)`);
     return { code: chosen.id, board: deleted.board, wordCount: deleted.wordCount, maxScore: deleted.maxScore };
@@ -1625,12 +1629,10 @@ async function pickBoardFromBank() {
 
 // Vérifie le stock et alimente la banque si nécessaire (en arrière-plan)
 async function refillBankIfNeeded() {
-  console.log('[DEBUG] refill appelée, db=' + !!db + ' trie=' + !!trieRoot);
   if (!db || !trieRoot || !trieWorker) return;
   try {
     const snap = await db.collection('boards').limit(BANK_TARGET + 1).get();
     const count = snap.size;
-    console.log(`[DEBUG] Stock : ${count} grilles`);
     if (count >= BANK_REFILL_THRESHOLD) return;
     const needed = BANK_TARGET - count;
     const batches = Math.ceil(needed / BANK_BATCH_SIZE);
@@ -1668,10 +1670,14 @@ async function refillBankIfNeeded() {
       await new Promise(r => setTimeout(r, 200));
     }
   } catch(e) {
-    console.error('[DEBUG] Erreur refill : ' + e.message);
+    console.error('[bank] Erreur refill : ' + e.message);
   }
 }
 
+// ══════════════════════════════════════════════════════════
+// UTILITAIRES GRILLE — copies du scope principal
+// Ces fonctions sont également dupliquées dans le Worker (buildTrieInWorker).
+// Toute modification ici doit être répercutée dans le string du Worker.
 // ══════════════════════════════════════════════════════════
 function seededRng(seed) {
   let s=0;
@@ -2456,6 +2462,11 @@ function goHome() {
   if (firestoreUnsub) { firestoreUnsub(); firestoreUnsub=null; }
   document.querySelector('.overlay')?.remove();
   hide('gameUI','badgesScreen');
+
+  // Restaurer le label ODS dans le header
+  const dictEl = document.getElementById('dictInfo');
+  dictEl.classList.remove('game-mode');
+  dictEl.textContent = `ODS · ${dictionary.size.toLocaleString('fr-FR')} mots`;
 
   // Notif delta nouvelles parties si des parties ont été créées pendant la partie
   if (currentUser && _newGamesDelta > 0) {
