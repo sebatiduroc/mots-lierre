@@ -681,6 +681,8 @@
     <div class="auth-sep">ou</div>
     <input class="game-input lower" id="authEmail" type="email" placeholder="email@exemple.com" style="text-transform:none;letter-spacing:.05em;">
     <input class="game-input lower" id="authPassword" type="password" placeholder="Mot de passe" style="text-transform:none;letter-spacing:.05em;">
+    <input class="game-input" id="authPseudo" maxlength="20" placeholder="Votre pseudo" autocomplete="off" style="display:none;letter-spacing:.12em;">
+    <div id="authPseudoHint" style="display:none;font-size:.52rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;text-align:center;line-height:1.7;">Visible par les autres joueurs · 3–20 caractères</div>
     <div id="authModalError"></div>
     <button class="btn-mode" id="btnModalEmailLogin" style="width:100%;margin-top:0;">Connexion</button>
     <button class="btn-mode outline" id="btnModalEmailRegister" style="width:100%;margin-top:-4px;">Créer un compte</button>
@@ -915,8 +917,20 @@ function showError(msg) {
 let currentUser = null;
 
 if (auth) {
-  auth.onAuthStateChanged(user => {
+  auth.onAuthStateChanged(async user => {
     const wasLoggedIn = !!currentUser;
+    // Si le displayName Firebase manque, le charger depuis users/{uid}
+    if (user && !user.displayName && db) {
+      try {
+        const snap = await db.collection('users').doc(user.uid).get();
+        if (snap.exists && snap.data().pseudo) {
+          await user.updateProfile({ displayName: snap.data().pseudo });
+          // Recharger l'objet user frais
+          await user.reload();
+          user = auth.currentUser;
+        }
+      } catch(e) { console.warn('Chargement pseudo:', e.message); }
+    }
     currentUser = user;
     updateAuthUI();
 
@@ -1007,16 +1021,59 @@ async function loginEmail() {
 }
 
 // ── Création compte Email ──
+// Appelé une première fois : affiche le champ pseudo
+// Appelé une deuxième fois (pseudo visible) : crée le compte
 async function registerEmail() {
-  const email = document.getElementById('authEmail').value.trim();
-  const pass  = document.getElementById('authPassword').value;
-  if (!email || !pass) { showAuthError('Remplissez email et mot de passe.'); return; }
-  if (pass.length < 6) { showAuthError('Mot de passe : 6 caractères minimum.'); return; }
+  const pseudoInput = document.getElementById('authPseudo');
+  const pseudoHint  = document.getElementById('authPseudoHint');
+
+  // Étape 1 : afficher le champ pseudo si pas encore visible
+  if (pseudoInput.style.display === 'none') {
+    const email = document.getElementById('authEmail').value.trim();
+    const pass  = document.getElementById('authPassword').value;
+    if (!email || !pass) { showAuthError('Remplissez email et mot de passe.'); return; }
+    if (pass.length < 6) { showAuthError('Mot de passe : 6 caractères minimum.'); return; }
+    showAuthError('');
+    pseudoInput.style.display = '';
+    pseudoHint.style.display  = '';
+    pseudoInput.focus();
+    return;
+  }
+
+  // Étape 2 : valider le pseudo, vérifier l'unicité, créer le compte
+  const email  = document.getElementById('authEmail').value.trim();
+  const pass   = document.getElementById('authPassword').value;
+  const pseudo = pseudoInput.value.trim();
+
+  if (!pseudo) { showAuthError('Choisissez un pseudo.'); return; }
+  if (pseudo.length < 3) { showAuthError('Pseudo trop court (3 caractères min).'); return; }
+  if (!/^[a-zA-ZÀ-ÿ0-9 _\-\.]+$/.test(pseudo)) { showAuthError('Pseudo : lettres, chiffres, espaces, - _ . uniquement.'); return; }
+
+  showAuthError('Vérification du pseudo…');
   try {
-    await auth.createUserWithEmailAndPassword(email, pass);
+    // Vérifier unicité dans la collection "users" (champ pseudo indexé)
+    const existing = await db.collection('users').where('pseudo', '==', pseudo).limit(1).get();
+    if (!existing.empty) { showAuthError('Ce pseudo est déjà pris. Choisissez-en un autre.'); return; }
+
+    // Créer le compte Firebase Auth
+    showAuthError('Création du compte…');
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    const uid  = cred.user.uid;
+
+    // Mettre à jour le displayName Firebase Auth
+    await cred.user.updateProfile({ displayName: pseudo });
+
+    // Enregistrer le pseudo dans Firestore users/{uid}
+    await db.collection('users').doc(uid).set({
+      pseudo,
+      email: email,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
     closeAuthModal();
   } catch(e) {
-    showAuthError(fmtAuthError(e.code));
+    if (e.code) showAuthError(fmtAuthError(e.code));
+    else showAuthError(e.message || 'Erreur.');
   }
 }
 
@@ -1042,10 +1099,15 @@ function openAuthModal() {
   document.getElementById('authModalError').textContent = '';
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
+  document.getElementById('authPseudo').value = '';
+  document.getElementById('authPseudo').style.display = 'none';
+  document.getElementById('authPseudoHint').style.display = 'none';
   document.getElementById('authModal').style.display = 'flex';
 }
 function closeAuthModal() {
   document.getElementById('authModal').style.display = 'none';
+  document.getElementById('authPseudo').style.display = 'none';
+  document.getElementById('authPseudoHint').style.display = 'none';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1084,7 +1146,7 @@ async function updateBadge(earned) {
     const isNew = earned > previous;
     if (isNew) {
       await ref.set({
-        displayName: currentUser.displayName || currentUser.email || 'Joueur',
+        displayName: currentUser.displayName || currentUser.email || currentUser.uid,
         email: currentUser.email || '',
         bestBadge: earned,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1256,11 +1318,7 @@ async function showBadgesScreen() {
       const isEx = rankCount[rank] > 1;
       const rankLabel = fmtRank(rank) + (isEx ? ' ex' : '');
       const badgeInfo = badgeByName[name] || { bestBadge: 0 };
-      const isMe = currentUser && (
-        (currentUser.displayName && currentUser.displayName === name) ||
-        (currentUser.email && currentUser.email === name) ||
-        (currentUser.uid && badgeInfo.uid === currentUser.uid)
-      );
+      const isMe = currentUser && badgeInfo.uid === currentUser.uid;
       const medal = getBadgeMedalClass(badgeInfo.bestBadge);
 
       const rc = rankClass(rank);
