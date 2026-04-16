@@ -804,6 +804,7 @@ function getBadgeTimeThreshold(badge) {
 }
 const N              = 4;
 const MULTI_TTL_MS   = 72 * 60 * 60 * 1000;
+const WEEK_MS        = 7 * 24 * 60 * 60 * 1000;
 
 // Paliers de badges
 const BADGE_THRESHOLDS = [10,20,30,40,50,60,65,70,75,80,85,90,91,92,93,94,95,96,97,98,99,100];
@@ -890,10 +891,14 @@ async function loadDictionary() {
 async function purgeOldGames() {
   if (!db) return;
   try {
-    const now = Date.now();
-    const snap = await db.collection('games').where('expiresAt', '<=', now).limit(100).get();
+    const cutoff = Date.now() - WEEK_MS;
+    const snap = await db.collection('games').orderBy('createdAt','asc').limit(100).get();
     const batch = db.batch(); let count = 0;
-    snap.forEach(doc => { batch.delete(doc.ref); count++; });
+    snap.forEach(doc => {
+      const d = doc.data();
+      const ts = d.createdAt ? d.createdAt.toMillis() : (d.createdAtMs || 0);
+      if (ts && ts < cutoff) { batch.delete(doc.ref); count++; }
+    });
     if (count > 0) { await batch.commit(); console.log(`Purge: ${count} supprimée(s)`); }
   } catch(e) { console.warn('Purge:', e.message); }
 }
@@ -995,86 +1000,10 @@ async function loginGoogle() {
   if (!auth) return;
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    const result = await auth.signInWithPopup(provider);
-    const isNew = result.additionalUserInfo && result.additionalUserInfo.isNewUser;
-    if (isNew && db) {
-      closeAuthModal();
-      showGooglePseudoModal(result.user);
-    } else {
-      if (db && result.user) {
-        const snap = await db.collection('users').doc(result.user.uid).get();
-        if (!snap.exists) {
-          closeAuthModal();
-          showGooglePseudoModal(result.user);
-          return;
-        }
-      }
-      closeAuthModal();
-    }
+    await auth.signInWithPopup(provider);
+    closeAuthModal();
   } catch(e) {
     showAuthError(e.message);
-  }
-}
-
-// ── Modale pseudo pour Google ──
-function showGooglePseudoModal(user) {
-  const existing = document.getElementById('googlePseudoModal');
-  if (existing) existing.remove();
-
-  const modal = document.createElement('div');
-  modal.id = 'googlePseudoModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(13,13,15,.92);display:flex;align-items:center;justify-content:center;z-index:960;backdrop-filter:blur(8px);';
-  modal.innerHTML = `
-    <div class="auth-modal-box" style="gap:12px;">
-      <h3>Choisissez un pseudo</h3>
-      <div style="font-size:0.6rem;letter-spacing:.15em;color:var(--text-dim);text-align:center;line-height:1.8;text-transform:uppercase;">
-        Visible dans le classement
-      </div>
-      <input id="googlePseudoInput" class="game-input" type="text"
-        placeholder="Votre pseudo"
-        maxlength="20"
-        style="width:100%;"
-        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-      <div id="googlePseudoError" style="font-size:.6rem;color:var(--red);letter-spacing:.1em;text-align:center;min-height:14px;"></div>
-      <button class="btn-mode" id="btnGooglePseudoConfirm" style="width:100%;margin-top:2px;">Confirmer</button>
-    </div>
-  `;
-  document.body.appendChild(modal);
-
-  const input = document.getElementById('googlePseudoInput');
-  const errEl = document.getElementById('googlePseudoError');
-  const btn   = document.getElementById('btnGooglePseudoConfirm');
-
-  input.focus();
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') confirmGooglePseudo(); });
-  btn.addEventListener('click', confirmGooglePseudo);
-
-  async function confirmGooglePseudo() {
-    const pseudo = input.value.trim();
-    if (!pseudo) { errEl.textContent = 'Choisissez un pseudo.'; return; }
-    if (pseudo.length < 3) { errEl.textContent = 'Pseudo trop court (3 caractères min).'; return; }
-    if (!/^[a-zA-ZÀ-ÿ0-9 _\-\.]+$/.test(pseudo)) {
-      errEl.textContent = 'Lettres, chiffres, espaces, - _ . uniquement.'; return;
-    }
-    btn.disabled = true;
-    errEl.textContent = 'Vérification…';
-    try {
-      const existing = await db.collection('users').where('pseudo', '==', pseudo).limit(1).get();
-      if (!existing.empty) { errEl.textContent = 'Ce pseudo est déjà pris.'; btn.disabled = false; return; }
-      await user.updateProfile({ displayName: pseudo });
-      await db.collection('users').doc(user.uid).set({
-        pseudo,
-        email: user.email || '',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      modal.remove();
-      await auth.currentUser.reload();
-      currentUser = auth.currentUser;
-      updateAuthUI();
-    } catch(e) {
-      errEl.textContent = e.message || 'Erreur.';
-      btn.disabled = false;
-    }
   }
 }
 
