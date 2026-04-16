@@ -3143,28 +3143,28 @@ document.getElementById('btnModalEmailRegister').addEventListener('click', regis
 document.getElementById('btnAuthModalClose').addEventListener('click', closeAuthModal);
 document.getElementById('authPassword').addEventListener('keydown', e=>{ if(e.key==='Enter') loginEmail(); });
 
-// Admin buttons
-document.getElementById('btnAdmin').addEventListener('click', openAdminPanel);
-document.getElementById('btnAdminClose').addEventListener('click', closeAdminPanel);
-document.getElementById('btnAdminRefreshBank').addEventListener('click', adminRefreshBank);
-document.getElementById('btnAdminClearBank').addEventListener('click', adminClearBank);
-document.getElementById('btnAdminFillBank').addEventListener('click', adminFillBank);
-document.getElementById('btnAdminRefreshGames').addEventListener('click', adminRefreshGames);
-document.getElementById('btnAdminPurgeExpired').addEventListener('click', adminPurgeExpired);
-document.getElementById('btnAdminClearAllGames').addEventListener('click', adminClearAllGames);
-document.getElementById('btnAdminRefreshUsers').addEventListener('click', adminRefreshUsers);
-document.getElementById('btnAdminOrphanBadges').addEventListener('click', adminOrphanBadges);
-document.getElementById('btnAdminDuplicateCheck').addEventListener('click', adminDuplicateCheck);
-document.getElementById('btnAdminDbStats').addEventListener('click', adminDbStats);
-document.getElementById('btnAdminEditConfirm').addEventListener('click', adminSaveBadge);
-document.getElementById('btnAdminEditCancel').addEventListener('click', () => { document.getElementById('adminEditModal').style.display='none'; });
-document.getElementById('btnAdminConfirmYes').addEventListener('click', () => {});
-document.getElementById('btnAdminConfirmNo').addEventListener('click', () => { document.getElementById('adminConfirmModal').style.display='none'; });
+// Admin buttons — optional chaining pour éviter toute exception si un élément est absent
+document.getElementById('btnAdmin')?.addEventListener('click', openAdminPanel);
+document.getElementById('btnAdminClose')?.addEventListener('click', closeAdminPanel);
+document.getElementById('btnAdminRefreshBank')?.addEventListener('click', adminRefreshBank);
+document.getElementById('btnAdminClearBank')?.addEventListener('click', adminClearBank);
+document.getElementById('btnAdminFillBank')?.addEventListener('click', adminFillBank);
+document.getElementById('btnAdminRefreshGames')?.addEventListener('click', adminRefreshGames);
+document.getElementById('btnAdminPurgeExpired')?.addEventListener('click', adminPurgeExpired);
+document.getElementById('btnAdminClearAllGames')?.addEventListener('click', adminClearAllGames);
+document.getElementById('btnAdminRefreshUsers')?.addEventListener('click', adminRefreshUsers);
+document.getElementById('btnAdminOrphanBadges')?.addEventListener('click', adminOrphanBadges);
+document.getElementById('btnAdminDuplicateCheck')?.addEventListener('click', adminDuplicateCheck);
+document.getElementById('btnAdminDbStats')?.addEventListener('click', adminDbStats);
+document.getElementById('btnAdminEditConfirm')?.addEventListener('click', adminSaveBadge);
+document.getElementById('btnAdminEditCancel')?.addEventListener('click', () => { document.getElementById('adminEditModal').style.display='none'; });
+document.getElementById('btnAdminConfirmYes')?.addEventListener('click', () => {});
+document.getElementById('btnAdminConfirmNo')?.addEventListener('click', () => { document.getElementById('adminConfirmModal').style.display='none'; });
 
 // ══════════════════════════════════════════════════════════
 // BOOT
 // ══════════════════════════════════════════════════════════
-attachGridEvents();
+try { attachGridEvents(); } catch(e) { console.error('attachGridEvents:', e); }
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js')
     .then(reg => console.log('[SW] Enregistré, scope :', reg.scope))
