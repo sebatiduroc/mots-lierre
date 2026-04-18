@@ -2608,8 +2608,8 @@ async function checkAndUpdatePalmares(pseudo, sc) {
   try {
     const now = Date.now();
 
-    // Charger les records actuels (top PALMARES_SIZE + 1 pour détecter le surplus)
-    const snap = await db.collection('records72h').orderBy('score', 'desc').limit(PALMARES_SIZE + 5).get();
+    // Charger tous les records (max PALMARES_SIZE + quelques uns)
+    const snap = await db.collection('records72h').limit(PALMARES_SIZE + 5).get();
     const records = [];
     snap.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
     records.sort((a, b) => b.score - a.score);
@@ -2628,7 +2628,7 @@ async function checkAndUpdatePalmares(pseudo, sc) {
 
     // Si le palmarès dépasse PALMARES_SIZE, supprimer le(s) surplus (les moins bons)
     if (records.length >= PALMARES_SIZE) {
-      const toTrim = records.slice(PALMARES_SIZE - 1); // ceux qui seront poussés hors top 3
+      const toTrim = records.slice(PALMARES_SIZE - 1);
       const trimBatch = db.batch();
       toTrim.forEach(r => {
         if (r.id) trimBatch.delete(db.collection('records72h').doc(r.id));
@@ -2649,14 +2649,72 @@ function fmtDate(ts) {
   return `${day}/${month} à ${hh}h${mm}`;
 }
 
-async function loadPalmares() {
+// Initialise records72h depuis les parties et badges existants si la collection est vide
+async function bootstrapPalmares() {
+  if (!db) return;
+  try {
+    // Charger toutes les parties (actives ou non, dans la semaine)
+    const [gamesSnap, badgesSnap] = await Promise.all([
+      db.collection('games').orderBy('createdAt', 'desc').limit(200).get(),
+      db.collection('badges').get()
+    ]);
+
+    // Construire l'index uid → pseudo depuis les badges
+    const uidByName = {};
+    badgesSnap.forEach(doc => {
+      const d = doc.data();
+      if (d.displayName) uidByName[d.displayName] = doc.id;
+    });
+
+    // Agréger le meilleur score par joueur connecté toutes parties confondues
+    const bestByUid = {}; // uid → { pseudo, score, playedAt }
+    gamesSnap.forEach(doc => {
+      const d = doc.data();
+      const players = d.players || {};
+      Object.entries(players).forEach(([pseudo, val]) => {
+        const uid = uidByName[pseudo];
+        if (!uid) return; // joueur anonyme
+        const pts = (val.wordList || []).reduce((s, w) => s + calcScore(w), 0);
+        if (!bestByUid[uid] || pts > bestByUid[uid].score) {
+          bestByUid[uid] = { pseudo, score: pts, playedAt: val.playedAt || Date.now(), uid };
+        }
+      });
+    });
+
+    // Trier et garder le top 3
+    const top = Object.values(bestByUid)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, PALMARES_SIZE)
+      .filter(r => r.score > 0);
+
+    if (!top.length) return;
+
+    const batch = db.batch();
+    top.forEach(r => {
+      const ref = db.collection('records72h').doc();
+      batch.set(ref, { pseudo: r.pseudo, score: r.score, playedAt: r.playedAt, uid: r.uid });
+    });
+    await batch.commit();
+    console.log('[palmares] Bootstrap : ' + top.length + ' records initialisés');
+  } catch(e) {
+    console.warn('[palmares] bootstrapPalmares:', e.message);
+  }
+}
+
+
   const container = document.getElementById('palmaresList');
   if (!db) {
     container.innerHTML = '';
     return;
   }
   try {
-    const snap = await db.collection('records72h').orderBy('score', 'desc').limit(PALMARES_SIZE).get();
+    // Vérifier si records72h est vide → initialiser depuis les parties existantes
+    const existingSnap = await db.collection('records72h').limit(1).get();
+    if (existingSnap.empty) {
+      await bootstrapPalmares();
+    }
+
+    const snap = await db.collection('records72h').limit(PALMARES_SIZE + 5).get();
     const records = [];
     snap.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
     records.sort((a, b) => b.score - a.score);
