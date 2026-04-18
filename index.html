@@ -203,6 +203,80 @@
     text-align: center; margin-top: 12px; padding: 0 16px; line-height: 1.8;
   }
 
+  /* ══ PALMARÈS 72H ══ */
+  .palmares-section {
+    width: 100%; max-width: 420px;
+    background: linear-gradient(135deg, rgba(200,169,110,0.08), rgba(200,169,110,0.03));
+    border: 1px solid rgba(200,169,110,0.35);
+    border-radius: 14px;
+    padding: 16px 14px 12px;
+    margin-bottom: 6px;
+  }
+  .palmares-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.95rem; font-weight: 700;
+    color: var(--gold-light); letter-spacing: 0.08em;
+    text-align: center; margin-bottom: 2px;
+  }
+  .palmares-sub {
+    font-size: 0.48rem; letter-spacing: 0.22em; color: var(--text-dim);
+    text-transform: uppercase; text-align: center; margin-bottom: 12px;
+  }
+  .palmares-row {
+    display: flex; align-items: center;
+    padding: 9px 10px; border-radius: 9px;
+    background: rgba(13,13,15,0.5);
+    border: 1px solid var(--border);
+    margin-bottom: 5px; gap: 10px;
+    transition: border-color .15s;
+  }
+  .palmares-row:last-child { margin-bottom: 0; }
+  .palmares-row.palmares-me { border-color: var(--gold); background: rgba(200,169,110,0.07); }
+  .palmares-row.palmares-empty {
+    opacity: 0.45; border-style: dashed;
+    justify-content: center; padding: 10px;
+  }
+  .palmares-trophy {
+    font-size: 1.3rem; flex-shrink: 0; width: 28px; text-align: center;
+  }
+  .palmares-info { flex: 1; min-width: 0; }
+  .palmares-name {
+    font-size: 0.78rem; color: var(--cream);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .palmares-name.palmares-me-name { color: var(--gold); }
+  .palmares-date {
+    font-size: 0.46rem; color: var(--text-dim);
+    letter-spacing: 0.12em; margin-top: 2px;
+  }
+  .palmares-score {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem; color: var(--gold);
+    flex-shrink: 0; text-align: right;
+  }
+  .palmares-score-label {
+    font-size: 0.4rem; letter-spacing: 0.15em; color: var(--text-dim);
+    text-transform: uppercase; display: block; text-align: right; margin-top: 1px;
+  }
+  .palmares-empty-text {
+    font-size: 0.55rem; letter-spacing: 0.15em;
+    color: var(--text-dim); text-transform: uppercase;
+  }
+
+  /* ══ SÉPARATEUR CLASSEMENTS ══ */
+  .ranking-sep {
+    width: 100%; max-width: 420px;
+    display: flex; align-items: center; gap: 10px;
+    margin: 14px 0 10px;
+  }
+  .ranking-sep::before, .ranking-sep::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .ranking-sep-label {
+    font-size: 0.48rem; letter-spacing: 0.22em;
+    color: var(--text-dim); text-transform: uppercase; white-space: nowrap;
+  }
+
   /* ══ BADGE POPUP (fin de partie) ══ */
   .badge-earned-popup {
     background: linear-gradient(135deg, rgba(200,169,110,0.15), rgba(200,169,110,0.05));
@@ -694,10 +768,14 @@
 <div id="badgesScreen">
   <button class="btn-back" id="btnBackFromBadges">← Retour</button>
   <h2>Badges</h2>
-  <p class="badges-sub">Classement · Points sur les parties actives</p>
-  <div id="badgesList">
-    <div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>
+  <p class="badges-sub">Palmarès &amp; Classement · Points actifs</p>
+  <div id="palmaresList" style="width:100%;max-width:420px;">
+    <div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:20px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>
   </div>
+  <div class="ranking-sep" id="rankingSep" style="display:none;">
+    <span class="ranking-sep-label">Classement général · pts actifs</span>
+  </div>
+  <div id="badgesList"></div>
   <p class="badge-hint" id="badgesHint"></p>
 </div>
 
@@ -1229,28 +1307,45 @@ function fmtRank(rank) {
 async function showBadgesScreen() {
   hide('loadingScreen','multiScreen','codeScreen','gameUI');
   show('badgesScreen');
+
+  const palmaresList = document.getElementById('palmaresList');
   const list = document.getElementById('badgesList');
-  list.innerHTML = '<div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>';
+  const rankingSep = document.getElementById('rankingSep');
+
+  palmaresList.innerHTML = '<div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:20px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>';
+  list.innerHTML = '';
+  rankingSep.style.display = 'none';
 
   if (!db) {
-    list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;">Firebase non disponible.</div>';
+    palmaresList.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;">Firebase non disponible.</div>';
     return;
   }
+
+  // Charger palmarès et classement en parallèle
+  await Promise.all([
+    loadPalmares(),
+    loadRanking()
+  ]);
+
+  // Afficher le séparateur seulement si le classement a du contenu
+  if (list.children.length > 0) {
+    rankingSep.style.display = 'flex';
+  }
+}
+
+async function loadRanking() {
+  const list = document.getElementById('badgesList');
 
   try {
     const now = Date.now();
 
-    // Purger les vieilles parties avant d'afficher
     await purgeOldGames();
 
-    // Charger parties actives + badges en parallèle
     const [gamesSnap, badgesSnap] = await Promise.all([
       db.collection('games').where('expiresAt', '>', now).get(),
       db.collection('badges').get()
     ]);
 
-    // Index badge par displayName (clé de recherche dans les parties)
-    // Structure : { displayName → { bestBadge, uid } }
     const badgeByName = {};
     badgesSnap.forEach(doc => {
       const d = doc.data();
@@ -1258,57 +1353,42 @@ async function showBadgesScreen() {
       if (name) badgeByName[name] = { bestBadge: d.bestBadge || 0, uid: doc.id };
     });
 
-    // Agréger les points par pseudo sur les parties actives
-    // On ne comptabilise que les pseudos qui ont un compte (présents dans badgeByName)
-    const pointsByName = {}; // pseudo → totalPoints
+    const pointsByName = {};
     gamesSnap.forEach(doc => {
       const players = doc.data().players || {};
       Object.entries(players).forEach(([pseudo, val]) => {
         if (val.score === undefined) return;
-        if (!(pseudo in badgeByName)) return; // joueur anonyme, ignoré
+        if (!(pseudo in badgeByName)) return;
         const pts = (val.wordList || []).reduce((s, w) => s + calcScore(w), 0);
         pointsByName[pseudo] = (pointsByName[pseudo] || 0) + pts;
       });
     });
 
-    // Construire la liste triée : points desc, ex-æquo alphabétique
+    // Ne garder que les joueurs avec score > 0
     const entries = Object.entries(pointsByName)
+      .filter(([, pts]) => pts > 0)
       .sort(([nameA, ptA], [nameB, ptB]) => {
         if (ptB !== ptA) return ptB - ptA;
         return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' });
       });
 
-    // Inclure aussi les joueurs connectés avec 0 point (présents dans badges mais pas dans parties actives)
-    const namesInRanking = new Set(entries.map(([n]) => n));
-    Object.keys(badgeByName).forEach(name => {
-      if (!namesInRanking.has(name)) entries.push([name, 0]);
-    });
-    // Re-trier après ajout des zéros (déjà alphabétique pour les ex-æquo)
-    entries.sort(([nameA, ptA], [nameB, ptB]) => {
-      if (ptB !== ptA) return ptB - ptA;
-      return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' });
-    });
-
     if (!entries.length) {
-      list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.1em;">Aucun joueur connecté encore.<br>Créez un compte et jouez !</div>';
+      list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:24px 0;letter-spacing:.1em;line-height:1.8;">Aucun score positif actif.<br>Jouez une partie multijoueurs !</div>';
       document.getElementById('badgesHint').textContent = currentUser ? '' : 'Connectez-vous pour apparaître dans ce classement et jouer plus longtemps.';
       return;
     }
 
-    // Calcul des rangs avec ex-æquo
-    // rank[i] = position réelle (ex : 1,2,3,3,3,6…)
     const ranks = [];
     let currentRank = 1;
     for (let i = 0; i < entries.length; i++) {
       if (i > 0 && entries[i][1] === entries[i-1][1]) {
-        ranks.push(ranks[i-1]); // même rang
+        ranks.push(ranks[i-1]);
       } else {
         ranks.push(currentRank);
       }
       currentRank++;
     }
 
-    // Détecter si un rang est partagé (ex-æquo)
     const rankCount = {};
     ranks.forEach(r => { rankCount[r] = (rankCount[r] || 0) + 1; });
 
@@ -1319,7 +1399,6 @@ async function showBadgesScreen() {
       const rankLabel = fmtRank(rank) + (isEx ? ' ex' : '');
       const badgeInfo = badgeByName[name] || { bestBadge: 0 };
       const isMe = currentUser && badgeInfo.uid === currentUser.uid;
-      const medal = getBadgeMedalClass(badgeInfo.bestBadge);
 
       const rc = rankClass(rank);
       const row = document.createElement('div');
@@ -2510,7 +2589,118 @@ async function saveScore(code, pseudo, sc, words) {
     await db.collection('games').doc(code).update({
       [`players.${pseudo}`]: { score:sc, words:words.length, wordList:words, playedAt:Date.now() }
     });
+    // Vérifier si le score entre dans le palmarès (joueur connecté, score > 0)
+    if (currentUser && sc > 0) {
+      await checkAndUpdatePalmares(pseudo, sc);
+    }
   } catch(e) { showNotif('Erreur enregistrement : '+e.message); }
+}
+
+// ══════════════════════════════════════════════════════════
+// PALMARÈS 72H
+// Un record ne disparaît que s'il est dépassé (poussé hors du top 3).
+// L'horodatage indique quand il a été établi, sans expiration.
+// ══════════════════════════════════════════════════════════
+const PALMARES_SIZE = 3;
+
+async function checkAndUpdatePalmares(pseudo, sc) {
+  if (!db) return;
+  try {
+    const now = Date.now();
+
+    // Charger les records actuels (top PALMARES_SIZE + 1 pour détecter le surplus)
+    const snap = await db.collection('records72h').orderBy('score', 'desc').limit(PALMARES_SIZE + 5).get();
+    const records = [];
+    snap.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
+    records.sort((a, b) => b.score - a.score);
+
+    // Vérifier si le nouveau score entre dans le top 3
+    const entersTop = records.length < PALMARES_SIZE || sc > records[PALMARES_SIZE - 1].score;
+    if (!entersTop) return;
+
+    // Ajouter le nouveau record
+    await db.collection('records72h').add({
+      pseudo,
+      score: sc,
+      playedAt: now,
+      uid: currentUser.uid
+    });
+
+    // Si le palmarès dépasse PALMARES_SIZE, supprimer le(s) surplus (les moins bons)
+    if (records.length >= PALMARES_SIZE) {
+      const toTrim = records.slice(PALMARES_SIZE - 1); // ceux qui seront poussés hors top 3
+      const trimBatch = db.batch();
+      toTrim.forEach(r => {
+        if (r.id) trimBatch.delete(db.collection('records72h').doc(r.id));
+      });
+      await trimBatch.commit();
+    }
+  } catch(e) {
+    console.warn('[palmares] Erreur :', e.message);
+  }
+}
+
+function fmtDate(ts) {
+  const d = new Date(ts);
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const hh = d.getHours().toString().padStart(2, '0');
+  const mm = d.getMinutes().toString().padStart(2, '0');
+  return `${day}/${month} à ${hh}h${mm}`;
+}
+
+async function loadPalmares() {
+  const container = document.getElementById('palmaresList');
+  if (!db) {
+    container.innerHTML = '';
+    return;
+  }
+  try {
+    const snap = await db.collection('records72h').orderBy('score', 'desc').limit(PALMARES_SIZE).get();
+    const records = [];
+    snap.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
+    records.sort((a, b) => b.score - a.score);
+    const top = records.slice(0, PALMARES_SIZE);
+
+    const trophies = ['🥇', '🥈', '🥉'];
+    const myUid = currentUser ? currentUser.uid : null;
+
+    const section = document.createElement('div');
+    section.className = 'palmares-section';
+    section.innerHTML = `
+      <div class="palmares-title">🏆 Palmarès · Records</div>
+      <div class="palmares-sub">Meilleurs scores · valables jusqu'à être battus</div>`;
+
+    for (let i = 0; i < PALMARES_SIZE; i++) {
+      const row = document.createElement('div');
+      if (top[i]) {
+        const r = top[i];
+        const isMe = myUid && r.uid === myUid;
+        row.className = 'palmares-row' + (isMe ? ' palmares-me' : '');
+        row.innerHTML = `
+          <div class="palmares-trophy">${trophies[i]}</div>
+          <div class="palmares-info">
+            <div class="palmares-name${isMe ? ' palmares-me-name' : ''}">${escHtml(r.pseudo)}${isMe ? ' <span style="font-size:.55rem;color:var(--text-dim)">(moi)</span>' : ''}</div>
+            <div class="palmares-date">le ${fmtDate(r.playedAt)}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div class="palmares-score">${r.score}</div>
+            <span class="palmares-score-label">pts</span>
+          </div>`;
+      } else {
+        row.className = 'palmares-row palmares-empty';
+        row.innerHTML = `<span class="palmares-empty-text">${trophies[i]} — à conquérir</span>`;
+      }
+      section.appendChild(row);
+    }
+
+    container.innerHTML = '';
+    container.appendChild(section);
+  } catch(e) {
+    document.getElementById('palmaresList').innerHTML =
+      `<div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:12px 0;">Palmarès indisponible.</div>`;
+    console.warn('[palmares] loadPalmares:', e.message);
+  }
 }
 
 // ══════════════════════════════════════════════════════════
