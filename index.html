@@ -218,9 +218,9 @@
     display: flex; flex-direction: column; gap: 5px;
   }
   .top3-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 14px;
-    border-radius: 9px;
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
     border: 1px solid var(--border);
     background: var(--surface);
   }
@@ -236,34 +236,34 @@
     background: rgba(176, 100, 40, 0.07);
     border-color: rgba(176, 100, 40, 0.35);
   }
-  .top3-icon {
-    font-size: 1.15rem; flex-shrink: 0; width: 24px; text-align: center;
-  }
   .top3-rank-label {
     font-family: 'Playfair Display', serif;
-    font-size: 0.68rem; flex-shrink: 0; min-width: 60px;
+    font-size: 0.75rem; flex-shrink: 0; min-width: 36px; text-align: left;
   }
   .top3-row.rank-1 .top3-rank-label { color: #ffd700; }
   .top3-row.rank-2 .top3-rank-label { color: #c0c0c0; }
   .top3-row.rank-3 .top3-rank-label { color: #b06428; }
+  .top3-info {
+    flex: 1; min-width: 0;
+  }
   .top3-name {
-    flex: 1; font-size: 0.8rem; color: var(--cream);
+    font-size: 0.8rem; color: var(--cream);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .top3-date {
-    font-size: 0.5rem; color: var(--text-dim); letter-spacing: 0.1em;
-    white-space: nowrap; flex-shrink: 0;
+    font-size: 0.52rem; color: var(--text-dim); letter-spacing: 0.1em;
+    margin-top: 2px;
   }
   .top3-pts {
     font-family: 'Playfair Display', serif;
-    font-size: 1rem; flex-shrink: 0;
-    min-width: 52px; text-align: right;
+    font-size: 1.1rem; flex-shrink: 0;
+    text-align: right;
   }
   .top3-row.rank-1 .top3-pts { color: #ffd700; }
   .top3-row.rank-2 .top3-pts { color: #c0c0c0; }
   .top3-row.rank-3 .top3-pts { color: #b06428; }
   .top3-pts-label {
-    font-size: 0.38rem; letter-spacing: 0.12em; color: var(--text-dim);
+    font-size: 0.42rem; letter-spacing: 0.15em; color: var(--text-dim);
     text-transform: uppercase; display: block; text-align: right; margin-top: 1px;
   }
   .top3-separator {
@@ -1429,15 +1429,12 @@ async function renderTop3() {
     const rankCount = {};
     ranks.forEach(r => { rankCount[r] = (rankCount[r] || 0) + 1; });
 
-    const ICONS = { 1: '🥇', 2: '🥈', 3: '🥉' };
-
     container.innerHTML = '';
     entries.forEach((e, idx) => {
       const rank = ranks[idx];
       if (rank > 3) return;
       const isEx = rankCount[rank] > 1;
       const rankLabel = (rank === 1 ? '1ᵉʳ' : `${rank}ᵉ`) + (isEx ? ' ex-æquo' : '');
-      const icon = ICONS[rank] || '';
 
       let dateStr = '—';
       if (e.achievedAt) {
@@ -1450,10 +1447,11 @@ async function renderTop3() {
       const row = document.createElement('div');
       row.className = `top3-row rank-${rank}`;
       row.innerHTML = `
-        <span class="top3-icon">${icon}</span>
         <span class="top3-rank-label">${rankLabel}</span>
-        <span class="top3-name">${escHtml(e.displayName)}${isMe ? ' <span style="font-size:.52rem;color:var(--text-dim)">(moi)</span>' : ''}</span>
-        <span class="top3-date">${dateStr}</span>
+        <div class="top3-info">
+          <div class="top3-name">${escHtml(e.displayName)}${isMe ? ' <span style="font-size:.58rem;color:var(--text-dim)">(moi)</span>' : ''}</div>
+          <div class="top3-date">${dateStr}</div>
+        </div>
         <div style="text-align:right;flex-shrink:0;">
           <div class="top3-pts">${e.score}</div>
           <span class="top3-pts-label">pts</span>
