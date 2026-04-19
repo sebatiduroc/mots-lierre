@@ -1323,19 +1323,20 @@ async function updateTopScores() {
       }
     });
 
-    // 2. Lire l'entrée existante du joueur
+    // 2. Transaction atomique : lire + écrire sans race condition
     const myRef = db.collection('topScores').doc(currentUser.uid);
-    const mySnap = await myRef.get();
-    const existingScore = mySnap.exists ? (mySnap.data().score || 0) : 0;
+    await db.runTransaction(async tx => {
+      const mySnap = await tx.get(myRef);
+      const existingScore = mySnap.exists ? (mySnap.data().score || 0) : 0;
 
-    // N'écrire que si le score actif dépasse le meilleur score enregistré
-    if (myTotal <= existingScore) return;
+      // Le top ne peut jamais baisser
+      if (myTotal <= existingScore) return;
 
-    // 3. Écrire uniquement son propre document (les règles Firestore l'autorisent)
-    await myRef.set({
-      displayName,
-      score: myTotal,
-      achievedAt: firebase.firestore.FieldValue.serverTimestamp()
+      tx.set(myRef, {
+        displayName,
+        score: myTotal,
+        achievedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
     });
   } catch(e) {
     console.warn('[topScores] updateTopScores:', e.message);
@@ -2512,7 +2513,7 @@ async function onGameOver() {
     await saveScore(currentGameCode, currentPseudo, score, words);
     // Mettre à jour le Top 3 si le joueur est connecté et a marqué des points
     if (currentUser && score > 0) {
-      updateTopScores(); // fire-and-forget, ne bloque pas l'affichage
+      await updateTopScores();
     }
     await showMultiOver(words, badgeResult);
   } else {
