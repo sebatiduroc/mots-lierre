@@ -1305,9 +1305,8 @@ function fmtRank(rank) {
 }
 
 // ── Met à jour le Top 3 Firebase après amélioration du totalScore ──
-// Appelée uniquement quand un joueur connecté améliore son score total.
-// Lit d'abord les parties actives pour calculer le totalScore réel,
-// puis lit/met à jour la collection topScores.
+// Chaque joueur n'écrit QUE son propre document (topScores/{uid}).
+// Le tri et le filtrage au rang 3 sont faits côté client à l'affichage.
 async function updateTopScores() {
   if (!currentUser || !db) return;
   try {
@@ -1324,64 +1323,22 @@ async function updateTopScores() {
       }
     });
 
-    // 2. Lire le topScores existant
-    const topSnap = await db.collection('topScores').get();
-    const existing = [];
-    topSnap.forEach(doc => existing.push({ id: doc.id, ...doc.data() }));
+    // 2. Lire l'entrée existante du joueur pour gérer l'horodatage
+    const myRef = db.collection('topScores').doc(currentUser.uid);
+    const mySnap = await myRef.get();
 
-    // 3. Construire la liste fusionnée : mettre à jour ou ajouter l'entrée du joueur courant
-    // On enlève l'ancienne entrée du joueur (s'il y en a une) et on ajoute la nouvelle
-    const others = existing.filter(e => e.uid !== currentUser.uid);
-    const newEntry = {
-      uid: currentUser.uid,
+    // Conserver l'horodatage d'origine si le score n'a pas changé
+    let achievedAt = firebase.firestore.FieldValue.serverTimestamp();
+    if (mySnap.exists && mySnap.data().score === myTotal && mySnap.data().achievedAt) {
+      achievedAt = mySnap.data().achievedAt;
+    }
+
+    // 3. Écrire uniquement son propre document (les règles Firestore l'autorisent)
+    await myRef.set({
       displayName,
       score: myTotal,
-      achievedAt: firebase.firestore.Timestamp.now()
-    };
-    // Conserver l'horodatage le plus ancien si le score est identique à l'ancienne entrée
-    const old = existing.find(e => e.uid === currentUser.uid);
-    if (old && old.score === myTotal && old.achievedAt) {
-      newEntry.achievedAt = old.achievedAt;
-    }
-    const merged = [...others, newEntry];
-
-    // 4. Trier : score desc, à égalité de score : achievedAt asc (plus ancien en premier = priorité)
-    merged.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      const ta = a.achievedAt ? (a.achievedAt.toMillis ? a.achievedAt.toMillis() : a.achievedAt) : 0;
-      const tb = b.achievedAt ? (b.achievedAt.toMillis ? b.achievedAt.toMillis() : b.achievedAt) : 0;
-      return ta - tb;
+      achievedAt
     });
-
-    // 5. Déterminer les rangs (identique à la logique d'affichage)
-    // Garder toutes les entrées jusqu'au rang 3 inclus
-    const ranks = [];
-    let nextRank = 1;
-    for (let i = 0; i < merged.length; i++) {
-      if (i > 0 && merged[i].score === merged[i-1].score) {
-        ranks.push(ranks[i-1]);
-      } else {
-        ranks.push(nextRank);
-      }
-      nextRank++;
-    }
-    const cutoffIdx = ranks.lastIndexOf(3);
-    const toKeep = cutoffIdx >= 0 ? merged.slice(0, cutoffIdx + 1) : merged.slice(0, 3);
-
-    // 6. Réécrire la collection topScores en batch (supprimer les anciens, écrire les nouveaux)
-    const batch = db.batch();
-    // Supprimer tous les docs existants
-    topSnap.forEach(doc => batch.delete(doc.ref));
-    // Écrire les nouveaux
-    toKeep.forEach(entry => {
-      const ref = db.collection('topScores').doc(entry.uid);
-      batch.set(ref, {
-        displayName: entry.displayName,
-        score: entry.score,
-        achievedAt: entry.achievedAt || firebase.firestore.FieldValue.serverTimestamp()
-      });
-    });
-    await batch.commit();
   } catch(e) {
     console.warn('[topScores] updateTopScores:', e.message);
   }
