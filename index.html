@@ -203,6 +203,75 @@
     text-align: center; margin-top: 12px; padding: 0 16px; line-height: 1.8;
   }
 
+  /* ══ TOP 3 SCORES ══ */
+  #top3Section {
+    width: 100%; max-width: 420px;
+    margin-bottom: 20px;
+  }
+  .top3-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--text-dim); text-align: center;
+    margin-bottom: 8px;
+  }
+  .top3-list {
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .top3-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .top3-row.rank-1 {
+    background: rgba(255, 215, 0, 0.07);
+    border-color: rgba(255, 215, 0, 0.4);
+  }
+  .top3-row.rank-2 {
+    background: rgba(192, 192, 192, 0.07);
+    border-color: rgba(192, 192, 192, 0.35);
+  }
+  .top3-row.rank-3 {
+    background: rgba(176, 100, 40, 0.07);
+    border-color: rgba(176, 100, 40, 0.35);
+  }
+  .top3-icon {
+    font-size: 1.15rem; flex-shrink: 0; width: 24px; text-align: center;
+  }
+  .top3-rank-label {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.68rem; flex-shrink: 0; min-width: 60px;
+  }
+  .top3-row.rank-1 .top3-rank-label { color: #ffd700; }
+  .top3-row.rank-2 .top3-rank-label { color: #c0c0c0; }
+  .top3-row.rank-3 .top3-rank-label { color: #b06428; }
+  .top3-name {
+    flex: 1; font-size: 0.8rem; color: var(--cream);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .top3-date {
+    font-size: 0.5rem; color: var(--text-dim); letter-spacing: 0.1em;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .top3-pts {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem; flex-shrink: 0;
+    min-width: 52px; text-align: right;
+  }
+  .top3-row.rank-1 .top3-pts { color: #ffd700; }
+  .top3-row.rank-2 .top3-pts { color: #c0c0c0; }
+  .top3-row.rank-3 .top3-pts { color: #b06428; }
+  .top3-pts-label {
+    font-size: 0.38rem; letter-spacing: 0.12em; color: var(--text-dim);
+    text-transform: uppercase; display: block; text-align: right; margin-top: 1px;
+  }
+  .top3-separator {
+    width: 100%; max-width: 420px;
+    border: none; border-top: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
   /* ══ BADGE POPUP (fin de partie) ══ */
   .badge-earned-popup {
     background: linear-gradient(135deg, rgba(200,169,110,0.15), rgba(200,169,110,0.05));
@@ -695,6 +764,16 @@
   <button class="btn-back" id="btnBackFromBadges">← Retour</button>
   <h2>Badges</h2>
   <p class="badges-sub">Classement · Points sur les parties actives</p>
+
+  <!-- Top 3 scores absolus -->
+  <div id="top3Section">
+    <div class="top3-title">🏆 Top 3 · Meilleurs scores</div>
+    <div class="top3-list" id="top3List">
+      <div style="font-size:.58rem;color:var(--text-dim);text-align:center;padding:12px 0;letter-spacing:.12em;text-transform:uppercase;">Chargement…</div>
+    </div>
+  </div>
+  <hr class="top3-separator">
+
   <div id="badgesList">
     <div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>
   </div>
@@ -1225,12 +1304,176 @@ function fmtRank(rank) {
   return `${rank}ᵉ`;
 }
 
+// ── Met à jour le Top 3 Firebase après amélioration du totalScore ──
+// Appelée uniquement quand un joueur connecté améliore son score total.
+// Lit d'abord les parties actives pour calculer le totalScore réel,
+// puis lit/met à jour la collection topScores.
+async function updateTopScores() {
+  if (!currentUser || !db) return;
+  try {
+    const now = Date.now();
+    const displayName = currentUser.displayName || currentUser.email || currentUser.uid;
+
+    // 1. Calculer le totalScore actuel du joueur (toutes parties actives)
+    const gamesSnap = await db.collection('games').where('expiresAt', '>', now).get();
+    let myTotal = 0;
+    gamesSnap.forEach(doc => {
+      const players = doc.data().players || {};
+      if (players[displayName]) {
+        myTotal += (players[displayName].wordList || []).reduce((s, w) => s + calcScore(w), 0);
+      }
+    });
+
+    // 2. Lire le topScores existant
+    const topSnap = await db.collection('topScores').get();
+    const existing = [];
+    topSnap.forEach(doc => existing.push({ id: doc.id, ...doc.data() }));
+
+    // 3. Construire la liste fusionnée : mettre à jour ou ajouter l'entrée du joueur courant
+    // On enlève l'ancienne entrée du joueur (s'il y en a une) et on ajoute la nouvelle
+    const others = existing.filter(e => e.uid !== currentUser.uid);
+    const newEntry = {
+      uid: currentUser.uid,
+      displayName,
+      score: myTotal,
+      achievedAt: firebase.firestore.Timestamp.now()
+    };
+    // Conserver l'horodatage le plus ancien si le score est identique à l'ancienne entrée
+    const old = existing.find(e => e.uid === currentUser.uid);
+    if (old && old.score === myTotal && old.achievedAt) {
+      newEntry.achievedAt = old.achievedAt;
+    }
+    const merged = [...others, newEntry];
+
+    // 4. Trier : score desc, à égalité de score : achievedAt asc (plus ancien en premier = priorité)
+    merged.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const ta = a.achievedAt ? (a.achievedAt.toMillis ? a.achievedAt.toMillis() : a.achievedAt) : 0;
+      const tb = b.achievedAt ? (b.achievedAt.toMillis ? b.achievedAt.toMillis() : b.achievedAt) : 0;
+      return ta - tb;
+    });
+
+    // 5. Déterminer les rangs (identique à la logique d'affichage)
+    // Garder toutes les entrées jusqu'au rang 3 inclus
+    const ranks = [];
+    let nextRank = 1;
+    for (let i = 0; i < merged.length; i++) {
+      if (i > 0 && merged[i].score === merged[i-1].score) {
+        ranks.push(ranks[i-1]);
+      } else {
+        ranks.push(nextRank);
+      }
+      nextRank++;
+    }
+    const cutoffIdx = ranks.lastIndexOf(3);
+    const toKeep = cutoffIdx >= 0 ? merged.slice(0, cutoffIdx + 1) : merged.slice(0, 3);
+
+    // 6. Réécrire la collection topScores en batch (supprimer les anciens, écrire les nouveaux)
+    const batch = db.batch();
+    // Supprimer tous les docs existants
+    topSnap.forEach(doc => batch.delete(doc.ref));
+    // Écrire les nouveaux
+    toKeep.forEach(entry => {
+      const ref = db.collection('topScores').doc(entry.uid);
+      batch.set(ref, {
+        displayName: entry.displayName,
+        score: entry.score,
+        achievedAt: entry.achievedAt || firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    await batch.commit();
+  } catch(e) {
+    console.warn('[topScores] updateTopScores:', e.message);
+  }
+}
+
+// ── Affiche le Top 3 des meilleurs scores ──
+async function renderTop3() {
+  const container = document.getElementById('top3List');
+  if (!container) return;
+  if (!db) {
+    container.innerHTML = '<div style="font-size:.58rem;color:var(--text-dim);text-align:center;padding:8px 0;">Firebase non disponible.</div>';
+    return;
+  }
+  try {
+    const snap = await db.collection('topScores').get();
+    if (snap.empty) {
+      container.innerHTML = '<div style="font-size:.58rem;color:var(--text-dim);text-align:center;padding:8px 0;letter-spacing:.12em;text-transform:uppercase;">Aucun score enregistré.</div>';
+      return;
+    }
+
+    // Reconstituer et trier la liste
+    const entries = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      entries.push({ uid: doc.id, displayName: d.displayName || '?', score: d.score || 0, achievedAt: d.achievedAt });
+    });
+    entries.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const ta = a.achievedAt ? (a.achievedAt.toMillis ? a.achievedAt.toMillis() : a.achievedAt) : 0;
+      const tb = b.achievedAt ? (b.achievedAt.toMillis ? b.achievedAt.toMillis() : b.achievedAt) : 0;
+      return ta - tb;
+    });
+
+    // Calcul des rangs
+    const ranks = [];
+    let nextRank = 1;
+    for (let i = 0; i < entries.length; i++) {
+      if (i > 0 && entries[i].score === entries[i-1].score) {
+        ranks.push(ranks[i-1]);
+      } else {
+        ranks.push(nextRank);
+      }
+      nextRank++;
+    }
+    const rankCount = {};
+    ranks.forEach(r => { rankCount[r] = (rankCount[r] || 0) + 1; });
+
+    const ICONS = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+    container.innerHTML = '';
+    entries.forEach((e, idx) => {
+      const rank = ranks[idx];
+      if (rank > 3) return;
+      const isEx = rankCount[rank] > 1;
+      const rankLabel = (rank === 1 ? '1ᵉʳ' : `${rank}ᵉ`) + (isEx ? ' ex-æquo' : '');
+      const icon = ICONS[rank] || '';
+
+      let dateStr = '—';
+      if (e.achievedAt) {
+        const ms = e.achievedAt.toMillis ? e.achievedAt.toMillis() : e.achievedAt;
+        const d = new Date(ms);
+        dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      }
+
+      const isMe = currentUser && e.uid === currentUser.uid;
+      const row = document.createElement('div');
+      row.className = `top3-row rank-${rank}`;
+      row.innerHTML = `
+        <span class="top3-icon">${icon}</span>
+        <span class="top3-rank-label">${rankLabel}</span>
+        <span class="top3-name">${escHtml(e.displayName)}${isMe ? ' <span style="font-size:.52rem;color:var(--text-dim)">(moi)</span>' : ''}</span>
+        <span class="top3-date">${dateStr}</span>
+        <div style="text-align:right;flex-shrink:0;">
+          <div class="top3-pts">${e.score}</div>
+          <span class="top3-pts-label">pts</span>
+        </div>`;
+      container.appendChild(row);
+    });
+  } catch(e) {
+    container.innerHTML = `<div style="font-size:.58rem;color:var(--text-dim);text-align:center;padding:8px 0;">Erreur : ${e.message}</div>`;
+  }
+}
+
 // ── Affichage tableau des badges ──
 async function showBadgesScreen() {
   hide('loadingScreen','multiScreen','codeScreen','gameUI');
   show('badgesScreen');
   const list = document.getElementById('badgesList');
   list.innerHTML = '<div style="font-size:.62rem;color:var(--text-dim);text-align:center;padding:32px 0;letter-spacing:.15em;text-transform:uppercase;">Chargement…</div>';
+
+  // Charger le Top 3 en parallèle
+  renderTop3();
 
   if (!db) {
     list.innerHTML = '<div style="font-size:.68rem;color:var(--text-dim);text-align:center;padding:32px 0;">Firebase non disponible.</div>';
@@ -2314,8 +2557,16 @@ async function onGameOver() {
 
   if (currentMode==='multi') {
     await saveScore(currentGameCode, currentPseudo, score, words);
+    // Mettre à jour le Top 3 si le joueur est connecté et a marqué des points
+    if (currentUser && score > 0) {
+      updateTopScores(); // fire-and-forget, ne bloque pas l'affichage
+    }
     await showMultiOver(words, badgeResult);
   } else {
+    // Solo : mettre à jour le Top 3 si connecté et a marqué des points
+    if (currentUser && score > 0) {
+      updateTopScores(); // fire-and-forget
+    }
     showSoloOver(words, badgeResult);
   }
 }
